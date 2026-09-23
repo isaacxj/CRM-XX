@@ -10,14 +10,17 @@
     "typecheck": "next typegen && tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "secrets": "secretlint \"**/*\"",
     "prepare": "husky"
   },
   "dependencies": {
     "next": "16.3.6",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@secretlint/secretlint-rule-preset-recommend": "^13.0.5",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
@@ -28,11 +31,15 @@
     "lint-staged": "^17.5.1",
     "prettier": "^3.9.9",
     "prettier-plugin-tailwindcss": "^0.8.1",
+    "secretlint": "^13.0.5",
     "tailwindcss": "^4",
     "typescript": "^5"
   },
   "packageManager": "pnpm@10.33.0",
   "lint-staged": {
+    "**/*": [
+      "secretlint"
+    ],
     "*.{js,jsx,ts,tsx}": [
       "eslint --fix",
       "prettier --write"
