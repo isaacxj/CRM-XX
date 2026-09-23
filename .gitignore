@@ -19,10 +19,14 @@
 
 # production
 /build
+dist/
 
 # misc
 .DS_Store
 *.pem
+.vscode/*
+!.vscode/extensions.json
+.idea/
 
 # debug
 npm-debug.log*
@@ -39,3 +43,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Cloudflare / OpenNext
+.open-next/
+.wrangler/
