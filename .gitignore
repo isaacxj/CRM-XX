@@ -47,3 +47,6 @@ next-env.d.ts
 # Cloudflare / OpenNext
 .open-next/
 .wrangler/
+
+# husky
+.husky/_/
