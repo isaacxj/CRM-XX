@@ -6,8 +6,8 @@ without mixing data between them.
 
 ## Status
 
-Early foundation work. The app isn't scaffolded yet, so there's nothing to
-run locally beyond this repo's hygiene tooling.
+Early foundation work. The app runs on Cloudflare Workers (via
+[vinext](https://vinext.dev)) with a Cloudflare D1 database.
 
 ## Prerequisites
 
@@ -20,6 +20,20 @@ run locally beyond this repo's hygiene tooling.
 Copy `.env.example` to `.env.local` and fill in the values. `src/env.ts`
 validates them with Zod at startup and throws a clear error if a required
 variable is missing or malformed.
+
+## Local development
+
+```
+pnpm install
+pnpm db:migrate   # apply migrations to local D1
+pnpm db:seed      # load demo data for Statixx and Trazo
+pnpm dev          # http://localhost:3000
+```
+
+`pnpm build` produces the Workers build; `pnpm start` runs it locally with
+Wrangler. Schema changes go in `src/server/db/schema.ts`; run
+`pnpm db:generate` to create a migration, review the SQL, then
+`pnpm db:migrate`. All local commands run against local D1 only.
 
 ## Contributing
 
