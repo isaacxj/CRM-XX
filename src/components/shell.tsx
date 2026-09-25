@@ -14,7 +14,12 @@ const BUSINESS_OPTIONS: { value: Business | "all"; label: string }[] = [
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const activeBusiness = searchParams.get("business") ?? "all";
+  const isDeals = pathname.startsWith("/deals");
+  const activeBusiness =
+    searchParams.get("business") ?? (isDeals ? "statixx" : "all");
+  const businessOptions = isDeals
+    ? BUSINESS_OPTIONS.filter((option) => option.value !== "all")
+    : BUSINESS_OPTIONS;
 
   return (
     <div className="flex flex-1">
@@ -50,22 +55,34 @@ export function Shell({ children }: { children: React.ReactNode }) {
           >
             Contacts
           </Link>
+          <Link
+            href="/deals"
+            className={`rounded px-3 py-2 text-sm font-medium ${
+              pathname.startsWith("/deals")
+                ? "bg-zinc-100 dark:bg-zinc-800"
+                : "text-zinc-600 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-900"
+            }`}
+          >
+            Deals
+          </Link>
         </nav>
         <div>
           <p className="px-3 text-xs font-medium text-zinc-500 uppercase">
             Business
           </p>
           <div className="mt-2 flex flex-col gap-1">
-            {BUSINESS_OPTIONS.map((option) => (
+            {businessOptions.map((option) => (
               <Link
                 key={option.value}
                 href={
-                  option.value === "all"
-                    ? "/companies"
-                    : `/companies?business=${option.value}`
+                  isDeals
+                    ? `/deals?business=${option.value}`
+                    : option.value === "all"
+                      ? "/companies"
+                      : `/companies?business=${option.value}`
                 }
                 className={`rounded px-3 py-2 text-sm ${
-                  pathname.startsWith("/companies") &&
+                  (isDeals || pathname.startsWith("/companies")) &&
                   activeBusiness === option.value
                     ? "bg-zinc-100 font-medium dark:bg-zinc-800"
                     : "text-zinc-600 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-900"
