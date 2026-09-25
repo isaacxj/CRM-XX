@@ -4,9 +4,11 @@ const envSchema = z.object({
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),
-  NEXT_PUBLIC_APP_URL: z.url(
-    "NEXT_PUBLIC_APP_URL must be a full URL, e.g. http://localhost:3000. See .env.example.",
-  ),
+  NEXT_PUBLIC_APP_URL: z
+    .url(
+      "NEXT_PUBLIC_APP_URL must be a full URL, e.g. http://localhost:3000. See .env.example.",
+    )
+    .default("http://localhost:3000"),
 });
 
 function loadEnv() {
