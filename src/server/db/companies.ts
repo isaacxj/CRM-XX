@@ -1,7 +1,81 @@
-import { and, eq, inArray, isNull, ne } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 
 import { getDb } from "./index";
-import { companies, deals, tasks, type Business } from "./schema";
+import {
+  companies,
+  deals,
+  tasks,
+  type Business,
+  type CompanyStatus,
+} from "./schema";
+
+export type CompanyFilters = {
+  business?: Business;
+  status?: CompanyStatus;
+  q?: string;
+};
+
+export async function listCompanies(filters: CompanyFilters) {
+  const db = getDb();
+
+  const conditions = [isNull(companies.archivedAt)];
+  if (filters.business)
+    conditions.push(eq(companies.business, filters.business));
+  if (filters.status) conditions.push(eq(companies.status, filters.status));
+  if (filters.q) {
+    conditions.push(
+      sql`lower(${companies.name}) like ${`%${filters.q.toLowerCase()}%`}`,
+    );
+  }
+
+  return db
+    .select()
+    .from(companies)
+    .where(and(...conditions))
+    .orderBy(asc(companies.name));
+}
+
+export async function getCompany(id: number) {
+  const db = getDb();
+  const [company] = await db
+    .select()
+    .from(companies)
+    .where(eq(companies.id, id));
+  return company ?? null;
+}
+
+export type CompanyInput = {
+  business: Business;
+  name: string;
+  website: string | null;
+  status: CompanyStatus;
+  source: string | null;
+};
+
+export async function createCompany(input: CompanyInput) {
+  const db = getDb();
+  const [company] = await db.insert(companies).values(input).returning();
+  return company;
+}
+
+export async function updateCompany(id: number, input: CompanyInput) {
+  const db = getDb();
+  await db
+    .update(companies)
+    .set({ ...input, updatedAt: sql`(current_timestamp)` })
+    .where(eq(companies.id, id));
+}
+
+export async function archiveCompany(id: number) {
+  const db = getDb();
+  await db
+    .update(companies)
+    .set({
+      archivedAt: sql`(current_timestamp)`,
+      updatedAt: sql`(current_timestamp)`,
+    })
+    .where(eq(companies.id, id));
+}
 
 export async function getHomeCounts(business: Business) {
   const db = getDb();
