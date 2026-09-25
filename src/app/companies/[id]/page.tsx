@@ -3,7 +3,20 @@ import Link from "next/link";
 
 import { archiveCompany, getCompany } from "@/server/db/companies";
 import { deleteContact, listContactsForCompany } from "@/server/db/contacts";
+import { createNote, deleteNote, listNotesForCompany } from "@/server/db/notes";
+import {
+  completeTask,
+  createTask,
+  deleteTask,
+  listTasksForCompany,
+  reopenTask,
+} from "@/server/db/tasks";
 import type { Business, CompanyStatus } from "@/server/db/schema";
+
+function formatDueDate(dateStr: string) {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString();
+}
 
 const BUSINESS_LABEL: Record<Business, string> = {
   statixx: "Statixx",
@@ -32,6 +45,8 @@ export default async function CompanyPage({
   }
 
   const contacts = await listContactsForCompany(companyId);
+  const notes = await listNotesForCompany(companyId);
+  const tasks = await listTasksForCompany(companyId);
 
   async function archive() {
     "use server";
@@ -43,6 +58,57 @@ export default async function CompanyPage({
     "use server";
     const contactId = Number(formData.get("contactId"));
     await deleteContact(contactId);
+    redirect(`/companies/${companyId}`);
+  }
+
+  async function addNote(formData: FormData) {
+    "use server";
+    const body = formData.get("body");
+    if (typeof body !== "string" || body.trim().length === 0) {
+      throw new Error("Note can't be empty.");
+    }
+    await createNote(companyId, body.trim());
+    redirect(`/companies/${companyId}`);
+  }
+
+  async function removeNote(formData: FormData) {
+    "use server";
+    const noteId = Number(formData.get("noteId"));
+    await deleteNote(noteId);
+    redirect(`/companies/${companyId}`);
+  }
+
+  async function addTask(formData: FormData) {
+    "use server";
+    const title = formData.get("title");
+    const dueDate = formData.get("dueDate");
+    if (typeof title !== "string" || title.trim().length === 0) {
+      throw new Error("Follow-up needs a title.");
+    }
+    await createTask(companyId, {
+      title: title.trim(),
+      dueDate:
+        typeof dueDate === "string" && dueDate.trim() ? dueDate.trim() : null,
+    });
+    redirect(`/companies/${companyId}`);
+  }
+
+  async function toggleTask(formData: FormData) {
+    "use server";
+    const taskId = Number(formData.get("taskId"));
+    const wasDone = formData.get("done") === "1";
+    if (wasDone) {
+      await reopenTask(taskId);
+    } else {
+      await completeTask(taskId);
+    }
+    redirect(`/companies/${companyId}`);
+  }
+
+  async function removeTask(formData: FormData) {
+    "use server";
+    const taskId = Number(formData.get("taskId"));
+    await deleteTask(taskId);
     redirect(`/companies/${companyId}`);
   }
 
@@ -151,6 +217,144 @@ export default async function CompanyPage({
               ))}
             </tbody>
           </table>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <h2 className="text-lg font-semibold">Follow-ups</h2>
+        <form
+          action={addTask}
+          className="flex max-w-2xl flex-wrap items-end gap-3"
+        >
+          <div className="flex min-w-48 flex-1 flex-col gap-1">
+            <label htmlFor="title" className="text-sm font-medium">
+              What&apos;s next
+            </label>
+            <input
+              id="title"
+              name="title"
+              type="text"
+              required
+              placeholder="Send proposal"
+              className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="dueDate" className="text-sm font-medium">
+              Due
+            </label>
+            <input
+              id="dueDate"
+              name="dueDate"
+              type="date"
+              className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            />
+          </div>
+          <button
+            type="submit"
+            className="rounded bg-zinc-900 px-4 py-2 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
+          >
+            Add follow-up
+          </button>
+        </form>
+
+        {tasks.length === 0 ? (
+          <p className="text-sm text-zinc-500">
+            No follow-ups yet. Add one so nothing slips.
+          </p>
+        ) : (
+          <ul className="flex max-w-2xl flex-col gap-2">
+            {tasks.map((task) => (
+              <li
+                key={task.id}
+                className="flex items-center justify-between gap-4 border-b border-zinc-100 py-2 text-sm dark:border-zinc-900"
+              >
+                <div
+                  className={task.doneAt ? "text-zinc-400 line-through" : ""}
+                >
+                  <span className="font-medium">{task.title}</span>
+                  {task.dueDate && (
+                    <span className="ml-2 text-zinc-500">
+                      {formatDueDate(task.dueDate)}
+                    </span>
+                  )}
+                </div>
+                <div className="flex shrink-0 gap-3">
+                  <form action={toggleTask}>
+                    <input type="hidden" name="taskId" value={task.id} />
+                    <input
+                      type="hidden"
+                      name="done"
+                      value={task.doneAt ? "1" : "0"}
+                    />
+                    <button
+                      type="submit"
+                      className="text-zinc-600 hover:underline dark:text-zinc-400"
+                    >
+                      {task.doneAt ? "Reopen" : "Mark done"}
+                    </button>
+                  </form>
+                  <form action={removeTask}>
+                    <input type="hidden" name="taskId" value={task.id} />
+                    <button
+                      type="submit"
+                      className="text-red-600 hover:underline"
+                    >
+                      Remove
+                    </button>
+                  </form>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <h2 className="text-lg font-semibold">Notes</h2>
+        <form action={addNote} className="flex max-w-2xl flex-col gap-2">
+          <textarea
+            name="body"
+            required
+            rows={3}
+            placeholder="Log what happened…"
+            className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          />
+          <button
+            type="submit"
+            className="self-start rounded bg-zinc-900 px-4 py-2 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
+          >
+            Add note
+          </button>
+        </form>
+
+        {notes.length === 0 ? (
+          <p className="text-sm text-zinc-500">No notes yet.</p>
+        ) : (
+          <ul className="flex max-w-2xl flex-col gap-3">
+            {notes.map((note) => (
+              <li
+                key={note.id}
+                className="rounded border border-zinc-100 p-3 text-sm dark:border-zinc-900"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <p className="whitespace-pre-wrap">{note.body}</p>
+                  <form action={removeNote}>
+                    <input type="hidden" name="noteId" value={note.id} />
+                    <button
+                      type="submit"
+                      className="shrink-0 text-red-600 hover:underline"
+                    >
+                      Delete
+                    </button>
+                  </form>
+                </div>
+                <p className="mt-2 text-xs text-zinc-500">
+                  {new Date(note.createdAt).toLocaleString()}
+                </p>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
 

@@ -135,16 +135,37 @@ async function main() {
         lostReason: stage === "lost" ? "Budget cut" : null,
       });
 
-      await db.insert(schema.notes).values({
-        companyId: inserted.id,
-        body: `Initial ${business === "statixx" ? "discovery call" : "demo"} went well.`,
-      });
+      await db.insert(schema.notes).values([
+        {
+          companyId: inserted.id,
+          body: `Initial ${business === "statixx" ? "discovery call" : "demo"} went well.`,
+        },
+        {
+          companyId: inserted.id,
+          body:
+            company.status === "client"
+              ? "Checked in — happy with progress so far."
+              : "Sent follow-up materials after the call.",
+        },
+      ]);
 
       if (index % 2 === 0) {
         await db.insert(schema.tasks).values({
           companyId: inserted.id,
           title: `Follow up with ${company.name}`,
-          dueDate: index % 4 === 0 ? "2026-09-25" : "2026-09-30",
+          dueDate:
+            index % 6 === 0
+              ? "2026-09-18" // overdue
+              : index % 4 === 0
+                ? "2026-09-25" // due today
+                : "2026-09-30", // upcoming
+        });
+      } else {
+        await db.insert(schema.tasks).values({
+          companyId: inserted.id,
+          title: `Sent proposal to ${company.name}`,
+          dueDate: "2026-09-10",
+          doneAt: "2026-09-11 09:00:00",
         });
       }
     }
