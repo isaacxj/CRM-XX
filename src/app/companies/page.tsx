@@ -37,6 +37,12 @@ export default async function CompaniesPage({
     typeof params.business === "string" ? params.business : "";
   const statusParam = typeof params.status === "string" ? params.status : "";
   const q = typeof params.q === "string" ? params.q : "";
+  const importedParam =
+    typeof params.imported === "string" ? Number(params.imported) : null;
+  const skippedParam =
+    typeof params.skipped === "string" ? Number(params.skipped) : null;
+  const contactsParam =
+    typeof params.contacts === "string" ? Number(params.contacts) : null;
 
   const business = isBusiness(businessParam) ? businessParam : undefined;
   const status = isStatus(statusParam) ? statusParam : undefined;
@@ -51,13 +57,33 @@ export default async function CompaniesPage({
     <div className="flex flex-1 flex-col gap-6 p-8">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Companies</h1>
-        <Link
-          href="/companies/new"
-          className="rounded bg-zinc-900 px-4 py-2 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
-        >
-          Add company
-        </Link>
+        <div className="flex gap-2">
+          <Link
+            href="/companies/import"
+            className="rounded border border-zinc-300 px-4 py-2 text-sm font-medium dark:border-zinc-700"
+          >
+            Import CSV
+          </Link>
+          <Link
+            href="/companies/new"
+            className="rounded bg-zinc-900 px-4 py-2 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
+          >
+            Add company
+          </Link>
+        </div>
       </div>
+
+      {importedParam !== null && (
+        <p className="rounded border border-zinc-300 bg-zinc-50 px-4 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900">
+          Imported {importedParam} compan{importedParam === 1 ? "y" : "ies"}
+          {contactsParam
+            ? ` and ${contactsParam} contact${contactsParam === 1 ? "" : "s"}`
+            : ""}
+          {skippedParam
+            ? `. Skipped ${skippedParam} row${skippedParam === 1 ? "" : "s"} that were missing a name or already existed.`
+            : "."}
+        </p>
+      )}
 
       <form className="flex flex-wrap items-end gap-3" method="get">
         <div className="flex flex-col gap-1">
