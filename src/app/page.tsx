@@ -35,14 +35,14 @@ export default async function Home() {
   );
 
   return (
-    <div className="flex flex-1 flex-col gap-8 p-8">
+    <div className="flex flex-1 flex-col gap-8 p-6 md:p-8">
       <div>
         <h1 className="text-2xl font-semibold">CRM-XX</h1>
         <p className="mt-1 text-zinc-600 dark:text-zinc-400">
           Companies and pipeline for Statixx and Trazo.
         </p>
       </div>
-      <div className="grid gap-6 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         {data.map(({ business, counts: stats, followUps }) => (
           <section
             key={business}
@@ -99,7 +99,7 @@ export default async function Home() {
                     >
                       <Link
                         href={`/companies/${task.companyId}`}
-                        className="truncate hover:underline"
+                        className="min-w-0 truncate hover:underline"
                       >
                         {task.title}
                         <span className="text-zinc-500">
