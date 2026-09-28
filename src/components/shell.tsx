@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect } from "react";
 
 import type { Business } from "@/server/db/schema";
 
@@ -10,6 +11,51 @@ const BUSINESS_OPTIONS: { value: Business | "all"; label: string }[] = [
   { value: "statixx", label: "Statixx" },
   { value: "trazo", label: "Trazo" },
 ];
+
+const NAV_ITEMS = [
+  { href: "/", label: "Home" },
+  { href: "/companies", label: "Companies" },
+  { href: "/contacts", label: "Contacts" },
+  { href: "/deals", label: "Deals" },
+];
+
+function isTypingTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName.toLowerCase();
+  return (
+    tag === "input" ||
+    tag === "textarea" ||
+    tag === "select" ||
+    target.isContentEditable
+  );
+}
+
+function useSearchShortcut() {
+  const router = useRouter();
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) {
+        return;
+      }
+      if (isTypingTarget(event.target)) return;
+
+      const search = document.getElementById("q");
+      if (search instanceof HTMLInputElement) {
+        event.preventDefault();
+        search.focus();
+        search.select();
+        return;
+      }
+
+      event.preventDefault();
+      router.push("/companies?focus=1");
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [router]);
+}
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -21,50 +67,35 @@ export function Shell({ children }: { children: React.ReactNode }) {
     ? BUSINESS_OPTIONS.filter((option) => option.value !== "all")
     : BUSINESS_OPTIONS;
 
+  useSearchShortcut();
+
   return (
-    <div className="flex flex-1">
-      <aside className="flex w-56 flex-col gap-6 border-r border-zinc-200 p-4 dark:border-zinc-800">
+    <div className="flex flex-1 flex-col md:flex-row">
+      <aside className="hidden w-56 flex-col gap-6 border-r border-zinc-200 p-4 md:flex dark:border-zinc-800">
+        <Link
+          href="/quick-add"
+          className="rounded bg-zinc-900 px-3 py-2 text-center text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
+        >
+          Quick add
+        </Link>
         <nav className="flex flex-col gap-1">
-          <Link
-            href="/"
-            className={`rounded px-3 py-2 text-sm font-medium ${
-              pathname === "/"
-                ? "bg-zinc-100 dark:bg-zinc-800"
-                : "text-zinc-600 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-900"
-            }`}
-          >
-            Home
-          </Link>
-          <Link
-            href="/companies"
-            className={`rounded px-3 py-2 text-sm font-medium ${
-              pathname.startsWith("/companies")
-                ? "bg-zinc-100 dark:bg-zinc-800"
-                : "text-zinc-600 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-900"
-            }`}
-          >
-            Companies
-          </Link>
-          <Link
-            href="/contacts"
-            className={`rounded px-3 py-2 text-sm font-medium ${
-              pathname.startsWith("/contacts")
-                ? "bg-zinc-100 dark:bg-zinc-800"
-                : "text-zinc-600 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-900"
-            }`}
-          >
-            Contacts
-          </Link>
-          <Link
-            href="/deals"
-            className={`rounded px-3 py-2 text-sm font-medium ${
-              pathname.startsWith("/deals")
-                ? "bg-zinc-100 dark:bg-zinc-800"
-                : "text-zinc-600 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-900"
-            }`}
-          >
-            Deals
-          </Link>
+          {NAV_ITEMS.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`rounded px-3 py-2 text-sm font-medium ${
+                item.href === "/"
+                  ? pathname === "/"
+                    ? "bg-zinc-100 dark:bg-zinc-800"
+                    : "text-zinc-600 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-900"
+                  : pathname.startsWith(item.href)
+                    ? "bg-zinc-100 dark:bg-zinc-800"
+                    : "text-zinc-600 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-900"
+              }`}
+            >
+              {item.label}
+            </Link>
+          ))}
         </nav>
         <div>
           <p className="px-3 text-xs font-medium text-zinc-500 uppercase">
@@ -94,7 +125,32 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </aside>
-      <main className="flex flex-1 flex-col">{children}</main>
+
+      <main className="flex flex-1 flex-col pb-16 md:pb-0">{children}</main>
+
+      <nav className="fixed inset-x-0 bottom-0 flex border-t border-zinc-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden dark:border-zinc-800 dark:bg-zinc-950">
+        {[...NAV_ITEMS, { href: "/quick-add", label: "Quick add" }].map(
+          (item) => {
+            const active =
+              item.href === "/"
+                ? pathname === "/"
+                : pathname.startsWith(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-xs font-medium ${
+                  active
+                    ? "text-zinc-900 dark:text-zinc-100"
+                    : "text-zinc-500 dark:text-zinc-500"
+                }`}
+              >
+                {item.label}
+              </Link>
+            );
+          },
+        )}
+      </nav>
     </div>
   );
 }

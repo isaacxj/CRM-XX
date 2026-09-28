@@ -215,8 +215,8 @@ export default async function CompanyPage({
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-6 p-8">
-      <div className="flex items-center justify-between">
+    <div className="flex flex-1 flex-col gap-6 p-6 md:p-8">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">{company.name}</h1>
           <p className="text-sm text-zinc-500">
@@ -272,53 +272,61 @@ export default async function CompanyPage({
             No contacts yet. Add the people you work with at this company.
           </p>
         ) : (
-          <table className="w-full max-w-2xl text-left text-sm">
-            <thead>
-              <tr className="border-b border-zinc-200 text-zinc-500 dark:border-zinc-800">
-                <th className="py-2 font-medium">Name</th>
-                <th className="py-2 font-medium">Title</th>
-                <th className="py-2 font-medium">Email</th>
-                <th className="py-2 font-medium">Phone</th>
-                <th className="py-2 font-medium" />
-              </tr>
-            </thead>
-            <tbody>
-              {contacts.map((contact) => (
-                <tr
-                  key={contact.id}
-                  className="border-b border-zinc-100 dark:border-zinc-900"
-                >
-                  <td className="py-2 font-medium">{contact.name}</td>
-                  <td className="py-2 text-zinc-500">{contact.title ?? "—"}</td>
-                  <td className="py-2 text-zinc-500">{contact.email ?? "—"}</td>
-                  <td className="py-2 text-zinc-500">{contact.phone ?? "—"}</td>
-                  <td className="py-2">
-                    <div className="flex justify-end gap-3">
-                      <Link
-                        href={`/companies/${company.id}/contacts/${contact.id}/edit`}
-                        className="text-zinc-600 hover:underline dark:text-zinc-400"
-                      >
-                        Edit
-                      </Link>
-                      <form action={removeContact}>
-                        <input
-                          type="hidden"
-                          name="contactId"
-                          value={contact.id}
-                        />
-                        <button
-                          type="submit"
-                          className="text-red-600 hover:underline"
-                        >
-                          Remove
-                        </button>
-                      </form>
-                    </div>
-                  </td>
+          <div className="max-w-2xl overflow-x-auto">
+            <table className="w-full min-w-[480px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-zinc-200 text-zinc-500 dark:border-zinc-800">
+                  <th className="py-2 font-medium">Name</th>
+                  <th className="py-2 font-medium">Title</th>
+                  <th className="py-2 font-medium">Email</th>
+                  <th className="py-2 font-medium">Phone</th>
+                  <th className="py-2 font-medium" />
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {contacts.map((contact) => (
+                  <tr
+                    key={contact.id}
+                    className="border-b border-zinc-100 dark:border-zinc-900"
+                  >
+                    <td className="py-2 font-medium">{contact.name}</td>
+                    <td className="py-2 text-zinc-500">
+                      {contact.title ?? "—"}
+                    </td>
+                    <td className="py-2 text-zinc-500">
+                      {contact.email ?? "—"}
+                    </td>
+                    <td className="py-2 text-zinc-500">
+                      {contact.phone ?? "—"}
+                    </td>
+                    <td className="py-2">
+                      <div className="flex justify-end gap-3">
+                        <Link
+                          href={`/companies/${company.id}/contacts/${contact.id}/edit`}
+                          className="text-zinc-600 hover:underline dark:text-zinc-400"
+                        >
+                          Edit
+                        </Link>
+                        <form action={removeContact}>
+                          <input
+                            type="hidden"
+                            name="contactId"
+                            value={contact.id}
+                          />
+                          <button
+                            type="submit"
+                            className="text-red-600 hover:underline"
+                          >
+                            Remove
+                          </button>
+                        </form>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
