@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 
 import { archiveCompany, getCompany } from "@/server/db/companies";
+import { deleteContact, listContactsForCompany } from "@/server/db/contacts";
 import type { Business, CompanyStatus } from "@/server/db/schema";
 
 const BUSINESS_LABEL: Record<Business, string> = {
@@ -30,10 +31,19 @@ export default async function CompanyPage({
     notFound();
   }
 
+  const contacts = await listContactsForCompany(companyId);
+
   async function archive() {
     "use server";
     await archiveCompany(companyId);
     redirect("/companies");
+  }
+
+  async function removeContact(formData: FormData) {
+    "use server";
+    const contactId = Number(formData.get("contactId"));
+    await deleteContact(contactId);
+    redirect(`/companies/${companyId}`);
   }
 
   return (
@@ -77,6 +87,72 @@ export default async function CompanyPage({
           <dd>{new Date(company.createdAt).toLocaleDateString()}</dd>
         </div>
       </dl>
+
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Contacts</h2>
+          <Link
+            href={`/companies/${company.id}/contacts/new`}
+            className="rounded border border-zinc-300 px-3 py-1.5 text-sm font-medium dark:border-zinc-700"
+          >
+            Add contact
+          </Link>
+        </div>
+
+        {contacts.length === 0 ? (
+          <p className="text-sm text-zinc-500">
+            No contacts yet. Add the people you work with at this company.
+          </p>
+        ) : (
+          <table className="w-full max-w-2xl text-left text-sm">
+            <thead>
+              <tr className="border-b border-zinc-200 text-zinc-500 dark:border-zinc-800">
+                <th className="py-2 font-medium">Name</th>
+                <th className="py-2 font-medium">Title</th>
+                <th className="py-2 font-medium">Email</th>
+                <th className="py-2 font-medium">Phone</th>
+                <th className="py-2 font-medium" />
+              </tr>
+            </thead>
+            <tbody>
+              {contacts.map((contact) => (
+                <tr
+                  key={contact.id}
+                  className="border-b border-zinc-100 dark:border-zinc-900"
+                >
+                  <td className="py-2 font-medium">{contact.name}</td>
+                  <td className="py-2 text-zinc-500">{contact.title ?? "—"}</td>
+                  <td className="py-2 text-zinc-500">{contact.email ?? "—"}</td>
+                  <td className="py-2 text-zinc-500">{contact.phone ?? "—"}</td>
+                  <td className="py-2">
+                    <div className="flex justify-end gap-3">
+                      <Link
+                        href={`/companies/${company.id}/contacts/${contact.id}/edit`}
+                        className="text-zinc-600 hover:underline dark:text-zinc-400"
+                      >
+                        Edit
+                      </Link>
+                      <form action={removeContact}>
+                        <input
+                          type="hidden"
+                          name="contactId"
+                          value={contact.id}
+                        />
+                        <button
+                          type="submit"
+                          className="text-red-600 hover:underline"
+                        >
+                          Remove
+                        </button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
 
       <Link href="/companies" className="text-sm text-zinc-500 hover:underline">
         ← Back to companies
