@@ -3,6 +3,12 @@ import Link from "next/link";
 
 import { archiveCompany, getCompany } from "@/server/db/companies";
 import { deleteContact, listContactsForCompany } from "@/server/db/contacts";
+import {
+  createDeal,
+  deleteDeal,
+  listDealsForCompany,
+  moveDealStage,
+} from "@/server/db/deals";
 import { createNote, deleteNote, listNotesForCompany } from "@/server/db/notes";
 import {
   completeTask,
@@ -11,11 +17,27 @@ import {
   listTasksForCompany,
   reopenTask,
 } from "@/server/db/tasks";
-import type { Business, CompanyStatus } from "@/server/db/schema";
+import {
+  DEAL_BILLING,
+  STATIXX_STAGES,
+  TRAZO_STAGES,
+  type Business,
+  type CompanyStatus,
+  type DealBilling,
+  type DealStage,
+} from "@/server/db/schema";
 
 function formatDueDate(dateStr: string) {
   const [year, month, day] = dateStr.split("-").map(Number);
   return new Date(year, month - 1, day).toLocaleDateString();
+}
+
+function formatCents(cents: number) {
+  return (cents / 100).toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  });
 }
 
 const BUSINESS_LABEL: Record<Business, string> = {
@@ -27,6 +49,23 @@ const STATUS_LABEL: Record<CompanyStatus, string> = {
   prospect: "Prospect",
   client: "Client",
   past: "Past client",
+};
+
+const DEAL_STAGE_LABEL: Record<DealStage, string> = {
+  qualified: "Qualified",
+  discovery: "Discovery",
+  proposal_sent: "Proposal sent",
+  negotiation: "Negotiation",
+  demo: "Demo",
+  pilot: "Pilot",
+  proposal: "Proposal",
+  won: "Won",
+  lost: "Lost",
+};
+
+const DEAL_BILLING_LABEL: Record<DealBilling, string> = {
+  one_time: "One-time",
+  monthly: "Monthly",
 };
 
 export default async function CompanyPage({
@@ -45,8 +84,10 @@ export default async function CompanyPage({
   }
 
   const contacts = await listContactsForCompany(companyId);
+  const deals = await listDealsForCompany(companyId);
   const notes = await listNotesForCompany(companyId);
   const tasks = await listTasksForCompany(companyId);
+  const stages = company.business === "statixx" ? STATIXX_STAGES : TRAZO_STAGES;
 
   async function archive() {
     "use server";
@@ -58,6 +99,67 @@ export default async function CompanyPage({
     "use server";
     const contactId = Number(formData.get("contactId"));
     await deleteContact(contactId);
+    redirect(`/companies/${companyId}`);
+  }
+
+  async function addDeal(formData: FormData) {
+    "use server";
+    const title = formData.get("title");
+    const amount = formData.get("amount");
+    const billing = formData.get("billing");
+    const closeDate = formData.get("closeDate");
+    const amountValue = typeof amount === "string" ? Number(amount) : NaN;
+
+    if (
+      typeof title !== "string" ||
+      title.trim().length === 0 ||
+      typeof billing !== "string" ||
+      !(DEAL_BILLING as readonly string[]).includes(billing) ||
+      !Number.isFinite(amountValue) ||
+      amountValue < 0
+    ) {
+      throw new Error(
+        "Deal needs a title, a valid amount, and a billing type.",
+      );
+    }
+
+    await createDeal(companyId, {
+      title: title.trim(),
+      amountCents: Math.round(amountValue * 100),
+      billing: billing as DealBilling,
+      closeDate:
+        typeof closeDate === "string" && closeDate.trim()
+          ? closeDate.trim()
+          : null,
+    });
+    redirect(`/companies/${companyId}`);
+  }
+
+  async function moveDeal(formData: FormData) {
+    "use server";
+    const dealId = Number(formData.get("dealId"));
+    const stage = formData.get("stage");
+    const lostReason = formData.get("lostReason");
+
+    if (
+      typeof stage !== "string" ||
+      !(stages as readonly string[]).includes(stage)
+    ) {
+      throw new Error("Pick a valid stage.");
+    }
+
+    await moveDealStage(
+      dealId,
+      stage as DealStage,
+      typeof lostReason === "string" ? lostReason : null,
+    );
+    redirect(`/companies/${companyId}`);
+  }
+
+  async function removeDeal(formData: FormData) {
+    "use server";
+    const dealId = Number(formData.get("dealId"));
+    await deleteDeal(dealId);
     redirect(`/companies/${companyId}`);
   }
 
@@ -217,6 +319,154 @@ export default async function CompanyPage({
               ))}
             </tbody>
           </table>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Deals</h2>
+          <Link
+            href="/deals"
+            className="text-sm text-zinc-600 hover:underline dark:text-zinc-400"
+          >
+            View board →
+          </Link>
+        </div>
+
+        <form
+          action={addDeal}
+          className="flex max-w-2xl flex-wrap items-end gap-3"
+        >
+          <div className="flex min-w-48 flex-1 flex-col gap-1">
+            <label htmlFor="deal-title" className="text-sm font-medium">
+              Deal
+            </label>
+            <input
+              id="deal-title"
+              name="title"
+              type="text"
+              required
+              placeholder="Website redesign"
+              className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="amount" className="text-sm font-medium">
+              Amount
+            </label>
+            <input
+              id="amount"
+              name="amount"
+              type="number"
+              min="0"
+              step="0.01"
+              required
+              placeholder="5000"
+              className="w-28 rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="billing" className="text-sm font-medium">
+              Billing
+            </label>
+            <select
+              id="billing"
+              name="billing"
+              defaultValue={
+                company.business === "trazo" ? "monthly" : "one_time"
+              }
+              className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            >
+              {DEAL_BILLING.map((value) => (
+                <option key={value} value={value}>
+                  {DEAL_BILLING_LABEL[value]}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="closeDate" className="text-sm font-medium">
+              Expected close
+            </label>
+            <input
+              id="closeDate"
+              name="closeDate"
+              type="date"
+              className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            />
+          </div>
+          <button
+            type="submit"
+            className="rounded bg-zinc-900 px-4 py-2 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
+          >
+            Add deal
+          </button>
+        </form>
+
+        {deals.length === 0 ? (
+          <p className="text-sm text-zinc-500">
+            No deals yet. Add one to start tracking the pipeline.
+          </p>
+        ) : (
+          <ul className="flex max-w-2xl flex-col gap-3">
+            {deals.map((deal) => (
+              <li
+                key={deal.id}
+                className="rounded border border-zinc-100 p-3 text-sm dark:border-zinc-900"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="font-medium">{deal.title}</p>
+                    <p className="text-zinc-500">
+                      {formatCents(deal.amountCents)} ·{" "}
+                      {DEAL_BILLING_LABEL[deal.billing]}
+                      {deal.closeDate &&
+                        ` · closes ${formatDueDate(deal.closeDate)}`}
+                    </p>
+                  </div>
+                  <form action={removeDeal}>
+                    <input type="hidden" name="dealId" value={deal.id} />
+                    <button
+                      type="submit"
+                      className="shrink-0 text-red-600 hover:underline"
+                    >
+                      Remove
+                    </button>
+                  </form>
+                </div>
+                <form
+                  action={moveDeal}
+                  className="mt-3 flex flex-wrap items-end gap-2"
+                >
+                  <input type="hidden" name="dealId" value={deal.id} />
+                  <select
+                    name="stage"
+                    defaultValue={deal.stage}
+                    className="rounded border border-zinc-300 px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                  >
+                    {stages.map((stage) => (
+                      <option key={stage} value={stage}>
+                        {DEAL_STAGE_LABEL[stage]}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    name="lostReason"
+                    type="text"
+                    defaultValue={deal.lostReason ?? ""}
+                    placeholder="Reason if Lost"
+                    className="min-w-40 flex-1 rounded border border-zinc-300 px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                  />
+                  <button
+                    type="submit"
+                    className="rounded border border-zinc-300 px-3 py-1.5 text-sm font-medium dark:border-zinc-700"
+                  >
+                    Update
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
 
