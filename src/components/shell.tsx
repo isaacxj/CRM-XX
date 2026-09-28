@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { href: "/companies", label: "Companies" },
   { href: "/contacts", label: "Contacts" },
   { href: "/deals", label: "Deals" },
+  { href: "/tasks", label: "Tasks" },
 ];
 
 function isTypingTarget(target: EventTarget | null) {
