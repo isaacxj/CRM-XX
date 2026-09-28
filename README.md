@@ -15,6 +15,12 @@ run locally beyond this repo's hygiene tooling.
 - pnpm
 - Git
 
+## Environment variables
+
+Copy `.env.example` to `.env.local` and fill in the values. `src/env.ts`
+validates them with Zod at startup and throws a clear error if a required
+variable is missing or malformed.
+
 ## Contributing
 
 - Changes land on `main` only through pull requests.
