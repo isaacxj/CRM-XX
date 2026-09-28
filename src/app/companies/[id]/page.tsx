@@ -10,6 +10,7 @@ import {
   moveDealStage,
 } from "@/server/db/deals";
 import { createNote, deleteNote, listNotesForCompany } from "@/server/db/notes";
+import { listTimelineForCompany } from "@/server/db/timeline";
 import {
   completeTask,
   createTask,
@@ -30,6 +31,15 @@ import {
 function formatDueDate(dateStr: string) {
   const [year, month, day] = dateStr.split("-").map(Number);
   return new Date(year, month - 1, day).toLocaleDateString();
+}
+
+function formatTimestamp(value: string) {
+  // D1 stores current_timestamp as UTC without a zone marker.
+  return new Date(`${value.replace(" ", "T")}Z`).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 function formatCents(cents: number) {
@@ -87,6 +97,7 @@ export default async function CompanyPage({
   const deals = await listDealsForCompany(companyId);
   const notes = await listNotesForCompany(companyId);
   const tasks = await listTasksForCompany(companyId);
+  const timeline = await listTimelineForCompany(companyId);
   const stages = company.business === "statixx" ? STATIXX_STAGES : TRAZO_STAGES;
 
   async function archive() {
@@ -613,6 +624,57 @@ export default async function CompanyPage({
               </li>
             ))}
           </ul>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <h2 className="text-lg font-semibold">Activity</h2>
+        {timeline.length === 0 ? (
+          <p className="text-sm text-zinc-500">
+            Nothing yet. Notes, finished follow-ups, and deal changes show up
+            here.
+          </p>
+        ) : (
+          <ol className="flex max-w-2xl flex-col">
+            {timeline.map((item, index) => (
+              <li
+                key={index}
+                className="flex gap-4 border-b border-zinc-100 py-2 text-sm dark:border-zinc-900"
+              >
+                <time className="w-24 shrink-0 text-zinc-500">
+                  {formatTimestamp(item.at)}
+                </time>
+                <p className="min-w-0 whitespace-pre-wrap">
+                  {item.kind === "note" && (
+                    <>
+                      <span className="font-medium">Note:</span> {item.body}
+                    </>
+                  )}
+                  {item.kind === "task_done" && (
+                    <>
+                      <span className="font-medium">Completed follow-up:</span>{" "}
+                      {item.title}
+                    </>
+                  )}
+                  {item.kind === "deal_created" && (
+                    <>
+                      <span className="font-medium">New deal:</span>{" "}
+                      {item.title}
+                    </>
+                  )}
+                  {item.kind === "stage_change" && (
+                    <>
+                      <span className="font-medium">{item.dealTitle}:</span>{" "}
+                      {item.fromStage
+                        ? `${DEAL_STAGE_LABEL[item.fromStage]} → `
+                        : "moved to "}
+                      {DEAL_STAGE_LABEL[item.toStage]}
+                    </>
+                  )}
+                </p>
+              </li>
+            ))}
+          </ol>
         )}
       </div>
 

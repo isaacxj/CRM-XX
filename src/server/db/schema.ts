@@ -99,3 +99,13 @@ export const tasks = sqliteTable("tasks", {
   doneAt: text("done_at"),
   ...timestamps,
 });
+
+export const dealEvents = sqliteTable("deal_events", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  dealId: integer("deal_id")
+    .notNull()
+    .references(() => deals.id, { onDelete: "cascade" }),
+  fromStage: text("from_stage").$type<DealStage>(),
+  toStage: text("to_stage").notNull().$type<DealStage>(),
+  ...timestamps,
+});

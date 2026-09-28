@@ -87,6 +87,7 @@ async function main() {
   const proxy = await getPlatformProxy<{ DB: D1Database }>();
   const db = drizzle(proxy.env.DB, { schema });
 
+  await db.delete(schema.dealEvents);
   await db.delete(schema.tasks);
   await db.delete(schema.notes);
   await db.delete(schema.deals);
@@ -122,18 +123,35 @@ async function main() {
       ]);
 
       const stage = stages[index % stages.length];
-      await db.insert(schema.deals).values({
-        companyId: inserted.id,
-        title: `${company.name} ${business === "statixx" ? "engagement" : "subscription"}`,
-        stage,
-        amountCents:
-          business === "statixx"
-            ? 25_000_00 + index * 5_000_00
-            : 500_00 + index * 100_00,
-        billing: business === "statixx" ? "one_time" : "monthly",
-        closeDate: stage === "won" || stage === "lost" ? "2026-08-15" : null,
-        lostReason: stage === "lost" ? "Budget cut" : null,
-      });
+      const [deal] = await db
+        .insert(schema.deals)
+        .values({
+          companyId: inserted.id,
+          title: `${company.name} ${business === "statixx" ? "engagement" : "subscription"}`,
+          stage,
+          createdAt: "2026-09-05 12:00:00",
+          amountCents:
+            business === "statixx"
+              ? 25_000_00 + index * 5_000_00
+              : 500_00 + index * 100_00,
+          billing: business === "statixx" ? "one_time" : "monthly",
+          closeDate: stage === "won" || stage === "lost" ? "2026-08-15" : null,
+          lostReason: stage === "lost" ? "Budget cut" : null,
+        })
+        .returning();
+
+      // Walk each seeded deal through the stages before its current one.
+      const stageList: readonly schema.DealStage[] = stages;
+      const path = stageList.slice(0, stageList.indexOf(stage) + 1);
+      for (const [step, toStage] of path.slice(1).entries()) {
+        const day = String(10 + step * 3).padStart(2, "0");
+        await db.insert(schema.dealEvents).values({
+          dealId: deal.id,
+          fromStage: path[step],
+          toStage,
+          createdAt: `2026-09-${day} 15:00:00`,
+        });
+      }
 
       await db.insert(schema.notes).values([
         {
