@@ -22,6 +22,13 @@
       "when": 1790696201616,
       "tag": "0002_confused_whirlwind",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1790702262778,
+      "tag": "0003_equal_polaris",
+      "breakpoints": true
     }
   ]
 }

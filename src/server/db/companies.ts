@@ -112,7 +112,13 @@ export async function getHomeCounts(business: Business) {
     db
       .select()
       .from(tasks)
-      .where(and(inArray(tasks.companyId, companyIds), isNull(tasks.doneAt))),
+      .where(
+        and(
+          inArray(tasks.companyId, companyIds),
+          eq(tasks.kind, "follow_up"),
+          isNull(tasks.doneAt),
+        ),
+      ),
   ]);
 
   return {

@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { getHomeCounts } from "@/server/db/companies";
-import { listDueFollowUps } from "@/server/db/tasks";
+import { listDueFollowUps, listWaitingOnReply } from "@/server/db/tasks";
 import { BUSINESSES, type Business } from "@/server/db/schema";
 
 const BUSINESS_LABEL: Record<Business, string> = {
@@ -26,11 +26,12 @@ export default async function Home() {
   const today = new Date().toISOString().slice(0, 10);
   const data = await Promise.all(
     BUSINESSES.map(async (business) => {
-      const [counts, followUps] = await Promise.all([
+      const [counts, followUps, waiting] = await Promise.all([
         getHomeCounts(business),
         listDueFollowUps(business),
+        listWaitingOnReply(business),
       ]);
-      return { business, counts, followUps };
+      return { business, counts, followUps, waiting };
     }),
   );
 
@@ -43,7 +44,7 @@ export default async function Home() {
         </p>
       </div>
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-        {data.map(({ business, counts: stats, followUps }) => (
+        {data.map(({ business, counts: stats, followUps, waiting }) => (
           <section
             key={business}
             className="rounded-lg border border-zinc-200 p-6 dark:border-zinc-800"
@@ -114,6 +115,44 @@ export default async function Home() {
                             : "shrink-0 text-zinc-500"
                         }
                       >
+                        {task.dueDate ? formatDueDate(task.dueDate) : ""}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {waiting.length > 0 && (
+              <div className="mt-6 border-t border-zinc-200 pt-4 dark:border-zinc-800">
+                <h3 className="text-sm font-medium text-zinc-500">
+                  Waiting on reply
+                </h3>
+                <ul className="mt-2 flex flex-col gap-2">
+                  {waiting.map((task) => (
+                    <li
+                      key={task.id}
+                      className="flex items-center justify-between gap-4 text-sm"
+                    >
+                      <Link
+                        href={`/companies/${task.companyId}`}
+                        className="min-w-0 truncate hover:underline"
+                      >
+                        {task.title.replace(/^Waiting on reply:?\s*/, "") ||
+                          "Sent email"}
+                        <span className="text-zinc-500">
+                          {" "}
+                          · {task.companyName}
+                        </span>
+                      </Link>
+                      <span
+                        className={
+                          task.overdue
+                            ? "shrink-0 rounded bg-red-50 px-1.5 font-medium text-red-700 dark:bg-red-950 dark:text-red-300"
+                            : "shrink-0 text-zinc-500"
+                        }
+                      >
+                        {task.overdue ? "No reply · " : "Reply by "}
                         {task.dueDate ? formatDueDate(task.dueDate) : ""}
                       </span>
                     </li>
