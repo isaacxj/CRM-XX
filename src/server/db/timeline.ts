@@ -1,10 +1,23 @@
 import { and, eq, isNotNull } from "drizzle-orm";
 
 import { getDb } from "./index";
-import { dealEvents, deals, notes, tasks, type DealStage } from "./schema";
+import {
+  activities,
+  dealEvents,
+  deals,
+  tasks,
+  type ActivityType,
+  type DealStage,
+} from "./schema";
 
 export type TimelineItem =
-  | { kind: "note"; at: string; body: string }
+  | {
+      kind: "activity";
+      at: string;
+      type: ActivityType;
+      subject: string | null;
+      body: string;
+    }
   | { kind: "task_done"; at: string; title: string }
   | { kind: "deal_created"; at: string; title: string }
   | {
@@ -19,8 +32,8 @@ export async function listTimelineForCompany(
   companyId: number,
 ): Promise<TimelineItem[]> {
   const db = getDb();
-  const [noteRows, taskRows, dealRows, eventRows] = await Promise.all([
-    db.select().from(notes).where(eq(notes.companyId, companyId)),
+  const [activityRows, taskRows, dealRows, eventRows] = await Promise.all([
+    db.select().from(activities).where(eq(activities.companyId, companyId)),
     db
       .select()
       .from(tasks)
@@ -39,10 +52,12 @@ export async function listTimelineForCompany(
   ]);
 
   const items: TimelineItem[] = [
-    ...noteRows.map((n) => ({
-      kind: "note" as const,
-      at: n.createdAt,
-      body: n.body,
+    ...activityRows.map((a) => ({
+      kind: "activity" as const,
+      at: a.occurredAt,
+      type: a.type,
+      subject: a.subject,
+      body: a.body,
     })),
     ...taskRows.map((t) => ({
       kind: "task_done" as const,

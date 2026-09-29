@@ -89,7 +89,7 @@ async function main() {
 
   await db.delete(schema.dealEvents);
   await db.delete(schema.tasks);
-  await db.delete(schema.notes);
+  await db.delete(schema.activities);
   await db.delete(schema.deals);
   await db.delete(schema.contacts);
   await db.delete(schema.companies);
@@ -153,17 +153,30 @@ async function main() {
         });
       }
 
-      await db.insert(schema.notes).values([
+      await db.insert(schema.activities).values([
         {
           companyId: inserted.id,
+          type: "note",
           body: `Initial ${business === "statixx" ? "discovery call" : "demo"} went well.`,
+          occurredAt: "2026-09-20 15:00:00",
         },
         {
           companyId: inserted.id,
+          type: "email_sent",
+          subject: "Following up on our conversation",
+          body: "Sent follow-up materials after the call.",
+          occurredAt: "2026-09-22 14:30:00",
+        },
+        {
+          companyId: inserted.id,
+          type: company.status === "client" ? "meeting" : "call",
+          subject:
+            company.status === "client" ? "Quarterly check-in" : "Intro call",
           body:
             company.status === "client"
               ? "Checked in — happy with progress so far."
-              : "Sent follow-up materials after the call.",
+              : "",
+          occurredAt: "2026-09-25 16:00:00",
         },
       ]);
 

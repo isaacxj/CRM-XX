@@ -82,12 +82,27 @@ export const deals = sqliteTable("deals", {
   ...timestamps,
 });
 
-export const notes = sqliteTable("notes", {
+export const ACTIVITY_TYPES = [
+  "note",
+  "email_sent",
+  "email_received",
+  "call",
+  "meeting",
+] as const;
+export type ActivityType = (typeof ACTIVITY_TYPES)[number];
+
+export const activities = sqliteTable("activities", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   companyId: integer("company_id")
     .notNull()
     .references(() => companies.id),
-  body: text("body").notNull(),
+  contactId: integer("contact_id").references(() => contacts.id, {
+    onDelete: "set null",
+  }),
+  type: text("type", { enum: ACTIVITY_TYPES }).notNull().default("note"),
+  subject: text("subject"),
+  body: text("body").notNull().default(""),
+  occurredAt: text("occurred_at").notNull(),
   ...timestamps,
 });
 
