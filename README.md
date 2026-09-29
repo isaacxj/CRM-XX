@@ -41,3 +41,16 @@ Wrangler. Schema changes go in `src/server/db/schema.ts`; run
 - Write commit messages as [Conventional Commits](https://www.conventionalcommits.org/)
   (`feat:`, `fix:`, `chore:`, `docs:`, and so on).
 - Open a PR using the provided template, and keep each PR focused on one change.
+
+## Morning digest
+
+`workers/alerts/` is a small second Worker that emails each owner their overdue follow-ups, overdue waiting-on-reply emails, and today's meetings (weekdays, 13:00 UTC). People with nothing due get nothing. `/digest` in the app previews what would be sent.
+
+Try it locally (after `pnpm db:migrate` and `pnpm db:seed`):
+
+```bash
+pnpm alerts:dev
+curl "http://localhost:8799/__scheduled?cron=0+13+*+*+1-5"
+```
+
+The message is written to `workers/alerts/.wrangler/tmp/email/` and its path is logged. Live sending needs Email Routing enabled on the domain, each recipient verified there, and `FROM_ADDRESS` and `APP_URL` in `workers/alerts/wrangler.jsonc` set to real values.
