@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { WhoFilter, parseWho, type Who } from "@/components/who-filter";
+import { ownerLabel } from "@/lib/activity";
 import { markReplyReceived } from "@/server/db/activities";
+import { getCurrentUserEmail } from "@/server/user";
 import { listCompanies } from "@/server/db/companies";
 import { BUSINESSES, type Business } from "@/server/db/schema";
 import {
@@ -50,9 +53,10 @@ function formatDueDate(dateStr: string) {
   return new Date(year, month - 1, day).toLocaleDateString();
 }
 
-function tasksHref(tab: TaskTab, business?: Business) {
+function tasksHref(tab: TaskTab, business?: Business, who: Who = "everyone") {
   const params = new URLSearchParams({ tab });
   if (business) params.set("business", business);
+  if (who === "mine") params.set("who", "mine");
   return `/tasks?${params.toString()}`;
 }
 
@@ -67,11 +71,14 @@ export default async function TasksPage({
     typeof params.business === "string" ? params.business : "";
   const tab: TaskTab = isTab(tabParam) ? tabParam : "overdue";
   const business = isBusiness(businessParam) ? businessParam : undefined;
-  const here = tasksHref(tab, business);
+  const me = await getCurrentUserEmail();
+  const who = me ? parseWho(params.who) : "everyone";
+  const owner = who === "mine" ? me : null;
+  const here = tasksHref(tab, business, who);
 
   const [tasks, counts, companies] = await Promise.all([
-    listTasks(tab, business),
-    countTasksByTab(business),
+    listTasks(tab, business, owner),
+    countTasksByTab(business, owner),
     listCompanies({}),
   ]);
   const today = new Date().toISOString().slice(0, 10);
@@ -125,7 +132,7 @@ export default async function TasksPage({
     // Land on the tab where the new task will show up.
     const landing: TaskTab =
       due && due < today ? "overdue" : due === today ? "today" : "upcoming";
-    redirect(tasksHref(landing, business));
+    redirect(tasksHref(landing, business, who));
   }
 
   return (
@@ -143,7 +150,7 @@ export default async function TasksPage({
           {TASK_TABS.map((t) => (
             <Link
               key={t}
-              href={tasksHref(t, business)}
+              href={tasksHref(t, business, who)}
               aria-current={t === tab ? "page" : undefined}
               className={`rounded px-3 py-2 text-sm ${
                 t === tab
@@ -159,7 +166,7 @@ export default async function TasksPage({
           {[undefined, ...BUSINESSES].map((b) => (
             <Link
               key={b ?? "all"}
-              href={tasksHref(tab, b)}
+              href={tasksHref(tab, b, who)}
               aria-current={b === business ? "true" : undefined}
               className={`rounded px-3 py-2 text-sm ${
                 b === business
@@ -170,6 +177,15 @@ export default async function TasksPage({
               {b ? BUSINESS_LABEL[b] : "All"}
             </Link>
           ))}
+          {me && (
+            <>
+              <span className="mx-1 w-px self-stretch bg-zinc-200 dark:bg-zinc-800" />
+              <WhoFilter
+                who={who}
+                hrefFor={(w) => tasksHref(tab, business, w)}
+              />
+            </>
+          )}
         </div>
       </div>
 
@@ -240,6 +256,7 @@ export default async function TasksPage({
                     "No company"
                   )}
                   {task.business && ` · ${BUSINESS_LABEL[task.business]}`}
+                  {task.ownerEmail && ` · ${ownerLabel(task.ownerEmail)}`}
                 </p>
               </div>
               <span

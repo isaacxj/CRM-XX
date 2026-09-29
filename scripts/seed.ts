@@ -3,6 +3,14 @@ import { drizzle } from "drizzle-orm/d1";
 
 import * as schema from "../src/server/db/schema";
 
+// Two owners so the Mine / Everyone filter has something to filter.
+const OWNERS = [
+  process.env.DEV_USER_EMAIL?.toLowerCase() || "you@example.com",
+  "teammate@example.com",
+];
+
+const utc = (d: Date) => d.toISOString().slice(0, 19).replace("T", " ");
+
 const STATIXX_COMPANIES = [
   {
     name: "Ridgeline Manufacturing",
@@ -183,6 +191,23 @@ async function main() {
         ])
         .returning();
 
+      // Meetings in the coming days, so Home has something under Upcoming.
+      if (index % 3 === 1) {
+        const start = new Date();
+        start.setUTCDate(start.getUTCDate() + 1 + (index % 5));
+        start.setUTCHours(15, 0, 0, 0);
+        const end = new Date(start);
+        end.setUTCMinutes(45);
+        await db.insert(schema.activities).values({
+          companyId: inserted.id,
+          type: "meeting",
+          subject: `${company.status === "client" ? "Review" : "Intro"} with ${company.name}`,
+          occurredAt: utc(start),
+          endsAt: utc(end),
+          ownerEmail: OWNERS[index % 2],
+        });
+      }
+
       // Every third company is still waiting on a reply to the sent email:
       // half of them past due, the rest not yet.
       if (index % 3 === 0) {
@@ -192,6 +217,7 @@ async function main() {
           title: `Waiting on reply: ${sentEmail?.subject ?? "sent email"}`,
           dueDate: index % 2 === 0 ? "2026-09-25" : "2026-10-06",
           kind: "awaiting_reply",
+          ownerEmail: OWNERS[index % 2],
           activityId: sentEmail?.id,
         });
       }
@@ -200,6 +226,7 @@ async function main() {
         await db.insert(schema.tasks).values({
           companyId: inserted.id,
           title: `Follow up with ${company.name}`,
+          ownerEmail: OWNERS[index % 2],
           dueDate:
             index % 6 === 0
               ? "2026-09-18" // overdue
@@ -211,6 +238,7 @@ async function main() {
         await db.insert(schema.tasks).values({
           companyId: inserted.id,
           title: `Sent proposal to ${company.name}`,
+          ownerEmail: OWNERS[index % 2],
           dueDate: "2026-09-10",
           doneAt: "2026-09-11 09:00:00",
         });
