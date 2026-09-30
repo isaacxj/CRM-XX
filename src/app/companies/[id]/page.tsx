@@ -9,7 +9,13 @@ import {
   listDealsForCompany,
   moveDealStage,
 } from "@/server/db/deals";
-import { createNote, deleteNote, listNotesForCompany } from "@/server/db/notes";
+import {
+  createActivity,
+  deleteActivity,
+  listActivitiesForCompany,
+} from "@/server/db/activities";
+import { ACTIVITY_TYPE_ICON, ACTIVITY_TYPE_LABEL } from "@/lib/activity";
+import { listTimelineForCompany } from "@/server/db/timeline";
 import {
   completeTask,
   createTask,
@@ -18,9 +24,11 @@ import {
   reopenTask,
 } from "@/server/db/tasks";
 import {
+  ACTIVITY_TYPES,
   DEAL_BILLING,
   STATIXX_STAGES,
   TRAZO_STAGES,
+  type ActivityType,
   type Business,
   type CompanyStatus,
   type DealBilling,
@@ -30,6 +38,15 @@ import {
 function formatDueDate(dateStr: string) {
   const [year, month, day] = dateStr.split("-").map(Number);
   return new Date(year, month - 1, day).toLocaleDateString();
+}
+
+function formatTimestamp(value: string) {
+  // D1 stores current_timestamp as UTC without a zone marker.
+  return new Date(`${value.replace(" ", "T")}Z`).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 function formatCents(cents: number) {
@@ -85,8 +102,9 @@ export default async function CompanyPage({
 
   const contacts = await listContactsForCompany(companyId);
   const deals = await listDealsForCompany(companyId);
-  const notes = await listNotesForCompany(companyId);
+  const activities = await listActivitiesForCompany(companyId);
   const tasks = await listTasksForCompany(companyId);
+  const timeline = await listTimelineForCompany(companyId);
   const stages = company.business === "statixx" ? STATIXX_STAGES : TRAZO_STAGES;
 
   async function archive() {
@@ -163,20 +181,31 @@ export default async function CompanyPage({
     redirect(`/companies/${companyId}`);
   }
 
-  async function addNote(formData: FormData) {
+  async function addActivity(formData: FormData) {
     "use server";
-    const body = formData.get("body");
-    if (typeof body !== "string" || body.trim().length === 0) {
-      throw new Error("Note can't be empty.");
-    }
-    await createNote(companyId, body.trim());
+    const type = formData.get("type");
+    const contactId = Number(formData.get("contactId"));
+    const str = (key: string) => {
+      const v = formData.get(key);
+      return typeof v === "string" ? v : "";
+    };
+    await createActivity({
+      companyId,
+      type: ACTIVITY_TYPES.includes(type as ActivityType)
+        ? (type as ActivityType)
+        : "note",
+      contactId:
+        Number.isInteger(contactId) && contactId > 0 ? contactId : null,
+      subject: str("subject"),
+      body: str("body"),
+      occurredAt: str("occurredAt") || null,
+    });
     redirect(`/companies/${companyId}`);
   }
 
-  async function removeNote(formData: FormData) {
+  async function removeActivity(formData: FormData) {
     "use server";
-    const noteId = Number(formData.get("noteId"));
-    await deleteNote(noteId);
+    await deleteActivity(Number(formData.get("activityId")));
     redirect(`/companies/${companyId}`);
   }
 
@@ -569,36 +598,85 @@ export default async function CompanyPage({
       </div>
 
       <div className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold">Notes</h2>
-        <form action={addNote} className="flex max-w-2xl flex-col gap-2">
+        <h2 className="text-lg font-semibold">Log</h2>
+        <form action={addActivity} className="flex max-w-2xl flex-col gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <select
+              name="type"
+              aria-label="Type"
+              className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            >
+              {ACTIVITY_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {ACTIVITY_TYPE_ICON[t]} {ACTIVITY_TYPE_LABEL[t]}
+                </option>
+              ))}
+            </select>
+            <select
+              name="contactId"
+              aria-label="Contact"
+              className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            >
+              <option value="">No contact</option>
+              {contacts.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            <input
+              type="datetime-local"
+              name="occurredAt"
+              aria-label="When (defaults to now)"
+              className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            />
+          </div>
+          <input
+            name="subject"
+            placeholder="Subject (optional)"
+            aria-label="Subject"
+            className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          />
           <textarea
             name="body"
-            required
             rows={3}
             placeholder="Log what happened…"
+            aria-label="Details"
             className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
           />
           <button
             type="submit"
             className="self-start rounded bg-zinc-900 px-4 py-2 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
           >
-            Add note
+            Log activity
           </button>
         </form>
 
-        {notes.length === 0 ? (
-          <p className="text-sm text-zinc-500">No notes yet.</p>
+        {activities.length === 0 ? (
+          <p className="text-sm text-zinc-500">
+            Nothing logged yet. Log an email, a call, a meeting, or a note
+            above.
+          </p>
         ) : (
           <ul className="flex max-w-2xl flex-col gap-3">
-            {notes.map((note) => (
+            {activities.map((a) => (
               <li
-                key={note.id}
+                key={a.id}
                 className="rounded border border-zinc-100 p-3 text-sm dark:border-zinc-900"
               >
                 <div className="flex items-start justify-between gap-4">
-                  <p className="whitespace-pre-wrap">{note.body}</p>
-                  <form action={removeNote}>
-                    <input type="hidden" name="noteId" value={note.id} />
+                  <div className="min-w-0">
+                    <p className="font-medium">
+                      <span aria-hidden>{ACTIVITY_TYPE_ICON[a.type]}</span>{" "}
+                      {ACTIVITY_TYPE_LABEL[a.type]}
+                      {a.subject ? `: ${a.subject}` : ""}
+                    </p>
+                    {a.body && (
+                      <p className="mt-1 whitespace-pre-wrap">{a.body}</p>
+                    )}
+                  </div>
+                  <form action={removeActivity}>
+                    <input type="hidden" name="activityId" value={a.id} />
                     <button
                       type="submit"
                       className="shrink-0 text-red-600 hover:underline"
@@ -608,11 +686,70 @@ export default async function CompanyPage({
                   </form>
                 </div>
                 <p className="mt-2 text-xs text-zinc-500">
-                  {new Date(note.createdAt).toLocaleString()}
+                  {a.contactName ? `${a.contactName} · ` : ""}
+                  {new Date(
+                    `${a.occurredAt.replace(" ", "T")}Z`,
+                  ).toLocaleString()}
                 </p>
               </li>
             ))}
           </ul>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <h2 className="text-lg font-semibold">Activity</h2>
+        {timeline.length === 0 ? (
+          <p className="text-sm text-zinc-500">
+            Nothing yet. Logged activity, finished follow-ups, and deal changes
+            show up here.
+          </p>
+        ) : (
+          <ol className="flex max-w-2xl flex-col">
+            {timeline.map((item, index) => (
+              <li
+                key={index}
+                className="flex gap-4 border-b border-zinc-100 py-2 text-sm dark:border-zinc-900"
+              >
+                <time className="w-24 shrink-0 text-zinc-500">
+                  {formatTimestamp(item.at)}
+                </time>
+                <p className="min-w-0 whitespace-pre-wrap">
+                  {item.kind === "activity" && (
+                    <>
+                      <span className="font-medium">
+                        {ACTIVITY_TYPE_ICON[item.type]}{" "}
+                        {ACTIVITY_TYPE_LABEL[item.type]}
+                        {item.subject ? `: ${item.subject}` : ""}
+                      </span>
+                      {item.body ? ` ${item.body}` : ""}
+                    </>
+                  )}
+                  {item.kind === "task_done" && (
+                    <>
+                      <span className="font-medium">Completed follow-up:</span>{" "}
+                      {item.title}
+                    </>
+                  )}
+                  {item.kind === "deal_created" && (
+                    <>
+                      <span className="font-medium">New deal:</span>{" "}
+                      {item.title}
+                    </>
+                  )}
+                  {item.kind === "stage_change" && (
+                    <>
+                      <span className="font-medium">{item.dealTitle}:</span>{" "}
+                      {item.fromStage
+                        ? `${DEAL_STAGE_LABEL[item.fromStage]} → `
+                        : "moved to "}
+                      {DEAL_STAGE_LABEL[item.toStage]}
+                    </>
+                  )}
+                </p>
+              </li>
+            ))}
+          </ol>
         )}
       </div>
 
