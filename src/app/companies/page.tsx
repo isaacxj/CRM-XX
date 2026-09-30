@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { formatDaysAgo } from "@/lib/activity";
 import { listCompanies } from "@/server/db/companies";
 import {
   BUSINESSES,
@@ -47,12 +48,27 @@ export default async function CompaniesPage({
   const business = isBusiness(businessParam) ? businessParam : undefined;
   const status = isStatus(statusParam) ? statusParam : undefined;
   const focusSearch = params.focus === "1";
+  const sort = params.sort === "last_activity" ? "last_activity" : "name";
+  const dir = params.dir === "desc" ? "desc" : "asc";
 
   const companies = await listCompanies({
     business,
     status,
     q: q || undefined,
+    sort,
+    dir,
   });
+
+  // Clicking Last activity sorts stalest first, then flips.
+  const sortParams = new URLSearchParams();
+  if (business) sortParams.set("business", business);
+  if (status) sortParams.set("status", status);
+  if (q) sortParams.set("q", q);
+  sortParams.set("sort", "last_activity");
+  sortParams.set(
+    "dir",
+    sort === "last_activity" && dir === "asc" ? "desc" : "asc",
+  );
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6 md:p-8">
@@ -137,6 +153,12 @@ export default async function CompaniesPage({
             className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
           />
         </div>
+        {sort === "last_activity" && (
+          <>
+            <input type="hidden" name="sort" value={sort} />
+            <input type="hidden" name="dir" value={dir} />
+          </>
+        )}
         <button
           type="submit"
           className="rounded border border-zinc-300 px-4 py-2 text-sm font-medium dark:border-zinc-700"
@@ -155,13 +177,31 @@ export default async function CompaniesPage({
         </p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[480px] text-left text-sm">
+          <table className="w-full min-w-[560px] text-left text-sm">
             <thead>
               <tr className="border-b border-zinc-200 text-zinc-500 dark:border-zinc-800">
                 <th className="py-2 font-medium">Name</th>
                 <th className="py-2 font-medium">Business</th>
                 <th className="py-2 font-medium">Status</th>
                 <th className="py-2 font-medium">Website</th>
+                <th
+                  className="py-2 font-medium"
+                  aria-sort={
+                    sort === "last_activity"
+                      ? dir === "asc"
+                        ? "ascending"
+                        : "descending"
+                      : "none"
+                  }
+                >
+                  <Link
+                    href={`/companies?${sortParams.toString()}`}
+                    className="hover:underline"
+                  >
+                    Last activity
+                    {sort === "last_activity" && (dir === "asc" ? " ▲" : " ▼")}
+                  </Link>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -182,6 +222,9 @@ export default async function CompaniesPage({
                   <td className="py-2">{STATUS_LABEL[company.status]}</td>
                   <td className="py-2 text-zinc-500">
                     {company.website ?? "—"}
+                  </td>
+                  <td className="py-2 text-zinc-500">
+                    {formatDaysAgo(company.lastActivityAt)}
                   </td>
                 </tr>
               ))}

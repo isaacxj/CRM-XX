@@ -21,6 +21,16 @@ function toDate(value: string) {
   return new Date(`${value.replace(" ", "T")}Z`);
 }
 
+// "today", "yesterday", "12 days ago" for a D1 UTC timestamp.
+export function formatDaysAgo(value: string, now = new Date()) {
+  const days = Math.floor(
+    (now.getTime() - toDate(value).getTime()) / 86_400_000,
+  );
+  if (days <= 0) return "today";
+  if (days === 1) return "yesterday";
+  return `${days} days ago`;
+}
+
 // "Tue, Sep 29, 2:30 PM" or "Tue, Sep 29, 2:30 – 3:15 PM" when an end is set.
 export function formatMeetingTime(startsAt: string, endsAt?: string | null) {
   const start = toDate(startsAt);
