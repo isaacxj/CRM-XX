@@ -17,7 +17,11 @@ const NAV_ITEMS = [
   { href: "/companies", label: "Companies" },
   { href: "/contacts", label: "Contacts" },
   { href: "/deals", label: "Deals" },
+  { href: "/tasks", label: "Tasks" },
 ];
+
+// Desktop sidebar only; the phone nav is already full.
+const SIDEBAR_ONLY = [{ href: "/digest", label: "Morning digest" }];
 
 function isTypingTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false;
@@ -79,7 +83,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           Quick add
         </Link>
         <nav className="flex flex-col gap-1">
-          {NAV_ITEMS.map((item) => (
+          {[...NAV_ITEMS, ...SIDEBAR_ONLY].map((item) => (
             <Link
               key={item.href}
               href={item.href}

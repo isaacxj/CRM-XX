@@ -82,14 +82,39 @@ export const deals = sqliteTable("deals", {
   ...timestamps,
 });
 
-export const notes = sqliteTable("notes", {
+export const ACTIVITY_TYPES = [
+  "note",
+  "email_sent",
+  "email_received",
+  "call",
+  "meeting",
+] as const;
+export type ActivityType = (typeof ACTIVITY_TYPES)[number];
+
+export const activities = sqliteTable("activities", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   companyId: integer("company_id")
     .notNull()
     .references(() => companies.id),
-  body: text("body").notNull(),
+  contactId: integer("contact_id").references(() => contacts.id, {
+    onDelete: "set null",
+  }),
+  type: text("type", { enum: ACTIVITY_TYPES }).notNull().default("note"),
+  subject: text("subject"),
+  body: text("body").notNull().default(""),
+  occurredAt: text("occurred_at").notNull(),
+  // Meetings only: when it ends.
+  endsAt: text("ends_at"),
+  ownerEmail: text("owner_email"),
+  // Logged from email: the Message-ID, and the first Message-ID in its thread,
+  // so a reply can be matched to the email it answers.
+  messageId: text("message_id"),
+  threadId: text("thread_id"),
   ...timestamps,
 });
+
+export const TASK_KINDS = ["follow_up", "awaiting_reply"] as const;
+export type TaskKind = (typeof TASK_KINDS)[number];
 
 export const tasks = sqliteTable("tasks", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -97,5 +122,21 @@ export const tasks = sqliteTable("tasks", {
   title: text("title").notNull(),
   dueDate: text("due_date"),
   doneAt: text("done_at"),
+  kind: text("kind", { enum: TASK_KINDS }).notNull().default("follow_up"),
+  ownerEmail: text("owner_email"),
+  // The sent email an awaiting_reply task is waiting on.
+  activityId: integer("activity_id").references(() => activities.id, {
+    onDelete: "cascade",
+  }),
+  ...timestamps,
+});
+
+export const dealEvents = sqliteTable("deal_events", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  dealId: integer("deal_id")
+    .notNull()
+    .references(() => deals.id, { onDelete: "cascade" }),
+  fromStage: text("from_stage").$type<DealStage>(),
+  toStage: text("to_stage").notNull().$type<DealStage>(),
   ...timestamps,
 });

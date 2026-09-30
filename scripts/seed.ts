@@ -3,6 +3,14 @@ import { drizzle } from "drizzle-orm/d1";
 
 import * as schema from "../src/server/db/schema";
 
+// Two owners so the Mine / Everyone filter has something to filter.
+const OWNERS = [
+  process.env.DEV_USER_EMAIL?.toLowerCase() || "you@example.com",
+  "teammate@example.com",
+];
+
+const utc = (d: Date) => d.toISOString().slice(0, 19).replace("T", " ");
+
 const STATIXX_COMPANIES = [
   {
     name: "Ridgeline Manufacturing",
@@ -87,8 +95,9 @@ async function main() {
   const proxy = await getPlatformProxy<{ DB: D1Database }>();
   const db = drizzle(proxy.env.DB, { schema });
 
+  await db.delete(schema.dealEvents);
   await db.delete(schema.tasks);
-  await db.delete(schema.notes);
+  await db.delete(schema.activities);
   await db.delete(schema.deals);
   await db.delete(schema.contacts);
   await db.delete(schema.companies);
@@ -122,37 +131,102 @@ async function main() {
       ]);
 
       const stage = stages[index % stages.length];
-      await db.insert(schema.deals).values({
-        companyId: inserted.id,
-        title: `${company.name} ${business === "statixx" ? "engagement" : "subscription"}`,
-        stage,
-        amountCents:
-          business === "statixx"
-            ? 25_000_00 + index * 5_000_00
-            : 500_00 + index * 100_00,
-        billing: business === "statixx" ? "one_time" : "monthly",
-        closeDate: stage === "won" || stage === "lost" ? "2026-08-15" : null,
-        lostReason: stage === "lost" ? "Budget cut" : null,
-      });
+      const [deal] = await db
+        .insert(schema.deals)
+        .values({
+          companyId: inserted.id,
+          title: `${company.name} ${business === "statixx" ? "engagement" : "subscription"}`,
+          stage,
+          createdAt: "2026-09-05 12:00:00",
+          amountCents:
+            business === "statixx"
+              ? 25_000_00 + index * 5_000_00
+              : 500_00 + index * 100_00,
+          billing: business === "statixx" ? "one_time" : "monthly",
+          closeDate: stage === "won" || stage === "lost" ? "2026-08-15" : null,
+          lostReason: stage === "lost" ? "Budget cut" : null,
+        })
+        .returning();
 
-      await db.insert(schema.notes).values([
-        {
+      // Walk each seeded deal through the stages before its current one.
+      const stageList: readonly schema.DealStage[] = stages;
+      const path = stageList.slice(0, stageList.indexOf(stage) + 1);
+      for (const [step, toStage] of path.slice(1).entries()) {
+        const day = String(10 + step * 3).padStart(2, "0");
+        await db.insert(schema.dealEvents).values({
+          dealId: deal.id,
+          fromStage: path[step],
+          toStage,
+          createdAt: `2026-09-${day} 15:00:00`,
+        });
+      }
+
+      const seededActivities = await db
+        .insert(schema.activities)
+        .values([
+          {
+            companyId: inserted.id,
+            type: "note",
+            body: `Initial ${business === "statixx" ? "discovery call" : "demo"} went well.`,
+            occurredAt: "2026-09-20 15:00:00",
+          },
+          {
+            companyId: inserted.id,
+            type: "email_sent",
+            subject: "Following up on our conversation",
+            body: "Sent follow-up materials after the call.",
+            occurredAt: "2026-09-22 14:30:00",
+          },
+          {
+            companyId: inserted.id,
+            type: company.status === "client" ? "meeting" : "call",
+            subject:
+              company.status === "client" ? "Quarterly check-in" : "Intro call",
+            body:
+              company.status === "client"
+                ? "Checked in — happy with progress so far."
+                : "",
+            occurredAt: "2026-09-25 16:00:00",
+          },
+        ])
+        .returning();
+
+      // Meetings in the coming days, so Home has something under Upcoming.
+      if (index % 3 === 1) {
+        const start = new Date();
+        start.setUTCDate(start.getUTCDate() + 1 + (index % 5));
+        start.setUTCHours(15, 0, 0, 0);
+        const end = new Date(start);
+        end.setUTCMinutes(45);
+        await db.insert(schema.activities).values({
           companyId: inserted.id,
-          body: `Initial ${business === "statixx" ? "discovery call" : "demo"} went well.`,
-        },
-        {
+          type: "meeting",
+          subject: `${company.status === "client" ? "Review" : "Intro"} with ${company.name}`,
+          occurredAt: utc(start),
+          endsAt: utc(end),
+          ownerEmail: OWNERS[index % 2],
+        });
+      }
+
+      // Every third company is still waiting on a reply to the sent email:
+      // half of them past due, the rest not yet.
+      if (index % 3 === 0) {
+        const sentEmail = seededActivities.find((a) => a.type === "email_sent");
+        await db.insert(schema.tasks).values({
           companyId: inserted.id,
-          body:
-            company.status === "client"
-              ? "Checked in — happy with progress so far."
-              : "Sent follow-up materials after the call.",
-        },
-      ]);
+          title: `Waiting on reply: ${sentEmail?.subject ?? "sent email"}`,
+          dueDate: index % 2 === 0 ? "2026-09-25" : "2026-10-06",
+          kind: "awaiting_reply",
+          ownerEmail: OWNERS[index % 2],
+          activityId: sentEmail?.id,
+        });
+      }
 
       if (index % 2 === 0) {
         await db.insert(schema.tasks).values({
           companyId: inserted.id,
           title: `Follow up with ${company.name}`,
+          ownerEmail: OWNERS[index % 2],
           dueDate:
             index % 6 === 0
               ? "2026-09-18" // overdue
@@ -164,6 +238,7 @@ async function main() {
         await db.insert(schema.tasks).values({
           companyId: inserted.id,
           title: `Sent proposal to ${company.name}`,
+          ownerEmail: OWNERS[index % 2],
           dueDate: "2026-09-10",
           doneAt: "2026-09-11 09:00:00",
         });

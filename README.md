@@ -41,3 +41,24 @@ Wrangler. Schema changes go in `src/server/db/schema.ts`; run
 - Write commit messages as [Conventional Commits](https://www.conventionalcommits.org/)
   (`feat:`, `fix:`, `chore:`, `docs:`, and so on).
 - Open a PR using the provided template, and keep each PR focused on one change.
+
+## Morning digest
+
+`workers/alerts/` is a small second Worker that emails each owner their overdue follow-ups, overdue waiting-on-reply emails, and today's meetings (weekdays, 13:00 UTC). People with nothing due get nothing. `/digest` in the app previews what would be sent.
+
+Try it locally (after `pnpm db:migrate` and `pnpm db:seed`):
+
+```bash
+pnpm alerts:dev
+curl "http://localhost:8799/__scheduled?cron=0+13+*+*+1-5"
+```
+
+The message is written to `workers/alerts/.wrangler/tmp/email/` and its path is logged. Live sending needs Email Routing enabled on the domain, each recipient verified there, and `FROM_ADDRESS` and `APP_URL` in `workers/alerts/wrangler.jsonc` set to real values.
+
+The same Worker's email handler is the logging address. BCC it on an email to a contact and the CRM logs an email sent on their company and starts a 3-day waiting-on-reply reminder. Forward a reply (or forward it as an attachment) and it's logged as an email received and closes the reminder, matched by In-Reply-To/References or by the sender's contact address. A forwarded calendar invite becomes a meeting for the attendee who is a contact. Mail from outside the team that isn't part of a known thread is ignored, and Gmail's forwarding-verification email is passed on to `ADMIN_EMAIL`. Team addresses are `TEAM_EMAILS` plus anyone who already owns a task or activity. Try it locally with `pnpm alerts:dev`, then:
+
+```bash
+curl -X POST "http://localhost:8787/cdn-cgi/handler/email?from=you@example.com&to=log@example.com" --data-binary @message.eml
+```
+
+Going live needs an Email Routing rule sending the logging address to this Worker, and `TEAM_EMAILS` and `ADMIN_EMAIL` set in `workers/alerts/wrangler.jsonc`.

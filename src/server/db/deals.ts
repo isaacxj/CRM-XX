@@ -3,6 +3,7 @@ import { asc, eq, sql } from "drizzle-orm";
 import { getDb } from "./index";
 import {
   companies,
+  dealEvents,
   deals,
   type Business,
   type DealBilling,
@@ -65,7 +66,15 @@ export async function moveDealStage(
   }
 
   const db = getDb();
-  await db
+  const [current] = await db
+    .select({ stage: deals.stage })
+    .from(deals)
+    .where(eq(deals.id, id));
+  if (!current) {
+    throw new Error("Deal not found.");
+  }
+
+  const update = db
     .update(deals)
     .set({
       stage,
@@ -73,6 +82,19 @@ export async function moveDealStage(
       updatedAt: sql`(current_timestamp)`,
     })
     .where(eq(deals.id, id));
+
+  if (current.stage === stage) {
+    await update;
+    return;
+  }
+
+  // D1 has no interactive transactions; a batch is atomic.
+  await db.batch([
+    update,
+    db
+      .insert(dealEvents)
+      .values({ dealId: id, fromStage: current.stage, toStage: stage }),
+  ]);
 }
 
 export async function deleteDeal(id: number) {
