@@ -106,6 +106,10 @@ export const activities = sqliteTable("activities", {
   // Meetings only: when it ends.
   endsAt: text("ends_at"),
   ownerEmail: text("owner_email"),
+  // Logged from email: the Message-ID, and the first Message-ID in its thread,
+  // so a reply can be matched to the email it answers.
+  messageId: text("message_id"),
+  threadId: text("thread_id"),
   ...timestamps,
 });
 

@@ -20,5 +20,9 @@
     "APP_URL": "http://localhost:3000",
     // Must be an address on the domain that has Email Routing enabled.
     "FROM_ADDRESS": "crm@example.com",
+    // Team addresses allowed to BCC or forward mail to the logging address.
+    "TEAM_EMAILS": "dev@example.com",
+    // Receives Gmail's forwarding-verification email.
+    "ADMIN_EMAIL": "dev@example.com",
   },
 }

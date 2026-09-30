@@ -7,6 +7,7 @@ import {
   renderDigest,
   type DigestDb,
 } from "../../../src/server/db/digest";
+import { logInboundEmail } from "../../../src/server/db/emailLog";
 import * as schema from "../../../src/server/db/schema";
 
 type AlertsEnv = {
@@ -14,6 +15,10 @@ type AlertsEnv = {
   SEND_EMAIL: SendEmail;
   APP_URL: string;
   FROM_ADDRESS: string;
+  // Comma-separated team addresses, on top of anyone who already owns a task.
+  TEAM_EMAILS: string;
+  // Gets Gmail's forwarding-verification email.
+  ADMIN_EMAIL: string;
 };
 
 function base64Lines(text: string) {
@@ -77,5 +82,22 @@ export async function sendDigests(env: AlertsEnv, now = new Date()) {
 export default {
   async scheduled(_controller, env, ctx) {
     ctx.waitUntil(sendDigests(env));
+  },
+  // Mail sent to the logging address (BCCs, forwarded replies, invites).
+  async email(message, env) {
+    const raw = await new Response(message.raw).text();
+    const db = drizzle(env.DB, { schema }) as DigestDb;
+    const result = await logInboundEmail(db, raw, {
+      teamEmails: (env.TEAM_EMAILS ?? "").split(","),
+    });
+    if (result.action === "verification") {
+      if (env.ADMIN_EMAIL) await message.forward(env.ADMIN_EMAIL);
+      else
+        console.error("Forwarding verification arrived; ADMIN_EMAIL is unset.");
+    } else if (result.action === "ignored") {
+      console.log(`Ignored email from ${message.from}: ${result.reason}`);
+    } else {
+      console.log(`Logged ${result.action} #${result.activityId}`);
+    }
   },
 } satisfies ExportedHandler<AlertsEnv>;
