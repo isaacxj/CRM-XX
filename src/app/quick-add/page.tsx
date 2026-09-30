@@ -66,6 +66,8 @@ export default async function QuickAddPage() {
         : "note",
       subject: (formData.get("subject") as string | null) ?? null,
       body: body.trim(),
+      occurredAt: (formData.get("occurredAt") as string | null) || null,
+      endsAt: (formData.get("endsAt") as string | null) || null,
     });
     redirect(`/companies/${companyId}`);
   }
@@ -144,6 +146,28 @@ export default async function QuickAddPage() {
               <input
                 id="note-subject"
                 name="subject"
+                className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label htmlFor="note-when" className="text-sm font-medium">
+                When (defaults to now; the start time for a meeting)
+              </label>
+              <input
+                id="note-when"
+                name="occurredAt"
+                type="datetime-local"
+                className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label htmlFor="note-ends" className="text-sm font-medium">
+                Meeting ends (optional)
+              </label>
+              <input
+                id="note-ends"
+                name="endsAt"
+                type="datetime-local"
                 className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
               />
             </div>

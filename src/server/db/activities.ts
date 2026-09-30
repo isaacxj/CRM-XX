@@ -1,7 +1,16 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, isNull, lt, or, sql } from "drizzle-orm";
+
+import { getCurrentUserEmail } from "@/server/user";
 
 import { getDb } from "./index";
-import { activities, contacts, tasks, type ActivityType } from "./schema";
+import {
+  activities,
+  companies,
+  contacts,
+  tasks,
+  type ActivityType,
+  type Business,
+} from "./schema";
 
 export type NewActivity = {
   companyId: number;
@@ -10,6 +19,8 @@ export type NewActivity = {
   subject?: string | null;
   body?: string;
   occurredAt?: string | null;
+  // Meetings only; must be after occurredAt.
+  endsAt?: string | null;
   // For email_sent: create an awaiting_reply task due this many days out.
   remindInDays?: number | null;
 };
@@ -36,6 +47,8 @@ export async function listActivitiesForCompany(companyId: number) {
       subject: activities.subject,
       body: activities.body,
       occurredAt: activities.occurredAt,
+      endsAt: activities.endsAt,
+      ownerEmail: activities.ownerEmail,
       contactId: activities.contactId,
       contactName: contacts.name,
     })
@@ -57,7 +70,17 @@ export async function createActivity(input: NewActivity) {
   }
   const db = getDb();
   const occurredAt = normalizeOccurredAt(input.occurredAt);
+  let endsAt: string | null = null;
+  if (input.type === "meeting" && input.endsAt) {
+    endsAt = normalizeOccurredAt(input.endsAt);
+    if (endsAt <= occurredAt) {
+      throw new Error("The meeting has to end after it starts.");
+    }
+  }
+  const ownerEmail = await getCurrentUserEmail();
   const values = {
+    endsAt,
+    ownerEmail,
     companyId: input.companyId,
     type: input.type,
     contactId: input.contactId ?? null,
@@ -81,6 +104,7 @@ export async function createActivity(input: NewActivity) {
       title: `Waiting on reply${subject ? `: ${subject}` : ""}`,
       dueDate: due.toISOString().slice(0, 10),
       kind: "awaiting_reply",
+      ownerEmail,
       activityId: sql`last_insert_rowid()`,
     }),
   ]);
@@ -102,6 +126,7 @@ export async function markReplyReceived(taskId: number) {
     .innerJoin(activities, eq(tasks.activityId, activities.id))
     .where(eq(tasks.id, taskId));
   if (!row || row.doneAt) return;
+  const ownerEmail = await getCurrentUserEmail();
 
   await db.batch([
     db.insert(activities).values({
@@ -113,6 +138,7 @@ export async function markReplyReceived(taskId: number) {
         : "Reply",
       body: "",
       occurredAt: nowUtc(),
+      ownerEmail,
     }),
     db
       .update(tasks)
@@ -131,4 +157,55 @@ export async function deleteActivity(id: number) {
     db.delete(tasks).where(eq(tasks.activityId, id)),
     db.delete(activities).where(eq(activities.id, id)),
   ]);
+}
+
+export type UpcomingMeeting = {
+  id: number;
+  subject: string | null;
+  occurredAt: string;
+  endsAt: string | null;
+  ownerEmail: string | null;
+  companyId: number;
+  companyName: string;
+  business: Business;
+  contactName: string | null;
+};
+
+// Meetings starting between now and the end of the day `days` from now.
+export async function listUpcomingMeetings(
+  days = 7,
+  owner?: string | null,
+): Promise<UpcomingMeeting[]> {
+  const db = getDb();
+  const now = new Date();
+  const from = now.toISOString().slice(0, 19).replace("T", " ");
+  const end = new Date(now);
+  end.setUTCDate(end.getUTCDate() + days);
+  const to = end.toISOString().slice(0, 19).replace("T", " ");
+  return db
+    .select({
+      id: activities.id,
+      subject: activities.subject,
+      occurredAt: activities.occurredAt,
+      endsAt: activities.endsAt,
+      ownerEmail: activities.ownerEmail,
+      companyId: activities.companyId,
+      companyName: companies.name,
+      business: companies.business,
+      contactName: contacts.name,
+    })
+    .from(activities)
+    .innerJoin(companies, eq(activities.companyId, companies.id))
+    .leftJoin(contacts, eq(activities.contactId, contacts.id))
+    .where(
+      and(
+        eq(activities.type, "meeting"),
+        // Still happening counts as upcoming.
+        or(gte(activities.occurredAt, from), gte(activities.endsAt, from)),
+        lt(activities.occurredAt, to),
+        isNull(companies.archivedAt),
+        owner ? eq(activities.ownerEmail, owner) : undefined,
+      ),
+    )
+    .orderBy(asc(activities.occurredAt), asc(activities.id));
 }

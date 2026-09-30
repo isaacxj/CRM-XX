@@ -15,7 +15,12 @@ import {
   listActivitiesForCompany,
   markReplyReceived,
 } from "@/server/db/activities";
-import { ACTIVITY_TYPE_ICON, ACTIVITY_TYPE_LABEL } from "@/lib/activity";
+import {
+  ACTIVITY_TYPE_ICON,
+  ACTIVITY_TYPE_LABEL,
+  formatMeetingTime,
+  ownerLabel,
+} from "@/lib/activity";
 import { listTimelineForCompany } from "@/server/db/timeline";
 import {
   completeTask,
@@ -200,6 +205,7 @@ export default async function CompanyPage({
       subject: str("subject"),
       body: str("body"),
       occurredAt: str("occurredAt") || null,
+      endsAt: str("endsAt") || null,
       remindInDays: Number(str("remindInDays")) || null,
     });
     redirect(`/companies/${companyId}`);
@@ -573,6 +579,11 @@ export default async function CompanyPage({
                       {formatDueDate(task.dueDate)}
                     </span>
                   )}
+                  {task.ownerEmail && (
+                    <span className="ml-2 text-zinc-500">
+                      {ownerLabel(task.ownerEmail)}
+                    </span>
+                  )}
                 </div>
                 <div className="flex shrink-0 gap-3">
                   {task.kind === "awaiting_reply" && !task.doneAt && (
@@ -650,6 +661,16 @@ export default async function CompanyPage({
               className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
             />
           </div>
+          <div className="flex items-center gap-2 text-sm">
+            <label htmlFor="endsAt">If this is a meeting, it ends at</label>
+            <input
+              id="endsAt"
+              type="datetime-local"
+              name="endsAt"
+              className="rounded border border-zinc-300 px-3 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            />
+            <span className="text-zinc-500">(optional)</span>
+          </div>
           <input
             name="subject"
             placeholder="Subject (optional)"
@@ -721,9 +742,12 @@ export default async function CompanyPage({
                 </div>
                 <p className="mt-2 text-xs text-zinc-500">
                   {a.contactName ? `${a.contactName} · ` : ""}
-                  {new Date(
-                    `${a.occurredAt.replace(" ", "T")}Z`,
-                  ).toLocaleString()}
+                  {a.type === "meeting"
+                    ? formatMeetingTime(a.occurredAt, a.endsAt)
+                    : new Date(
+                        `${a.occurredAt.replace(" ", "T")}Z`,
+                      ).toLocaleString()}
+                  {a.ownerEmail && ` · ${ownerLabel(a.ownerEmail)}`}
                 </p>
               </li>
             ))}

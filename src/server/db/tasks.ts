@@ -12,6 +12,8 @@ import {
   sql,
 } from "drizzle-orm";
 
+import { getCurrentUserEmail } from "@/server/user";
+
 import { getDb } from "./index";
 import { companies, tasks, type Business, type TaskKind } from "./schema";
 
@@ -31,9 +33,10 @@ export type TaskInput = {
 
 export async function createTask(companyId: number | null, input: TaskInput) {
   const db = getDb();
+  const ownerEmail = await getCurrentUserEmail();
   const [task] = await db
     .insert(tasks)
-    .values({ companyId, ...input })
+    .values({ companyId, ownerEmail, ...input })
     .returning();
   return task;
 }
@@ -62,7 +65,10 @@ export async function deleteTask(id: number) {
   await db.delete(tasks).where(eq(tasks.id, id));
 }
 
-export async function listDueFollowUps(business: Business) {
+export async function listDueFollowUps(
+  business: Business,
+  owner?: string | null,
+) {
   const db = getDb();
   const today = new Date().toISOString().slice(0, 10);
 
@@ -73,6 +79,7 @@ export async function listDueFollowUps(business: Business) {
       dueDate: tasks.dueDate,
       companyId: tasks.companyId,
       companyName: companies.name,
+      ownerEmail: tasks.ownerEmail,
     })
     .from(tasks)
     .innerJoin(companies, eq(tasks.companyId, companies.id))
@@ -82,6 +89,7 @@ export async function listDueFollowUps(business: Business) {
         eq(tasks.kind, "follow_up"),
         isNull(tasks.doneAt),
         lte(tasks.dueDate, today),
+        owner ? eq(tasks.ownerEmail, owner) : undefined,
       ),
     )
     .orderBy(asc(tasks.dueDate));
@@ -93,12 +101,14 @@ export type WaitingRow = {
   dueDate: string | null;
   companyId: number | null;
   companyName: string | null;
+  ownerEmail: string | null;
   overdue: boolean;
 };
 
 // Open reminders for sent emails that haven't had a reply yet.
 export async function listWaitingOnReply(
   business?: Business,
+  owner?: string | null,
 ): Promise<WaitingRow[]> {
   const db = getDb();
   const today = new Date().toISOString().slice(0, 10);
@@ -109,6 +119,7 @@ export async function listWaitingOnReply(
       dueDate: tasks.dueDate,
       companyId: tasks.companyId,
       companyName: companies.name,
+      ownerEmail: tasks.ownerEmail,
     })
     .from(tasks)
     .leftJoin(companies, eq(tasks.companyId, companies.id))
@@ -117,6 +128,7 @@ export async function listWaitingOnReply(
         eq(tasks.kind, "awaiting_reply"),
         isNull(tasks.doneAt),
         business ? eq(companies.business, business) : undefined,
+        owner ? eq(tasks.ownerEmail, owner) : undefined,
       ),
     )
     .orderBy(asc(tasks.dueDate), asc(tasks.id));
@@ -144,6 +156,7 @@ export type TaskRow = {
   companyName: string | null;
   business: Business | null;
   kind: TaskKind;
+  ownerEmail: string | null;
 };
 
 // Reminders on sent emails live in the Waiting tab, not the follow-up tabs.
@@ -169,16 +182,23 @@ function tabFilter(tab: TaskTab, today: string) {
 }
 
 // Filtering by business hides standalone tasks, since they belong to neither.
-function taskWhere(tab: TaskTab, today: string, business?: Business) {
+function taskWhere(
+  tab: TaskTab,
+  today: string,
+  business?: Business,
+  owner?: string | null,
+) {
   return and(
     tabFilter(tab, today),
     business ? eq(companies.business, business) : undefined,
+    owner ? eq(tasks.ownerEmail, owner) : undefined,
   );
 }
 
 export async function listTasks(
   tab: TaskTab,
   business?: Business,
+  owner?: string | null,
 ): Promise<TaskRow[]> {
   const db = getDb();
   const today = new Date().toISOString().slice(0, 10);
@@ -193,10 +213,11 @@ export async function listTasks(
       companyName: companies.name,
       business: companies.business,
       kind: tasks.kind,
+      ownerEmail: tasks.ownerEmail,
     })
     .from(tasks)
     .leftJoin(companies, eq(tasks.companyId, companies.id))
-    .where(taskWhere(tab, today, business))
+    .where(taskWhere(tab, today, business, owner))
     .orderBy(
       tab === "done" ? desc(tasks.doneAt) : asc(sql`${tasks.dueDate} is null`),
       asc(tasks.dueDate),
@@ -206,6 +227,7 @@ export async function listTasks(
 
 export async function countTasksByTab(
   business?: Business,
+  owner?: string | null,
 ): Promise<Record<TaskTab, number>> {
   const db = getDb();
   const today = new Date().toISOString().slice(0, 10);
@@ -216,7 +238,7 @@ export async function countTasksByTab(
         .select({ count: sql<number>`count(*)` })
         .from(tasks)
         .leftJoin(companies, eq(tasks.companyId, companies.id))
-        .where(taskWhere(tab, today, business));
+        .where(taskWhere(tab, today, business, owner));
       return [tab, Number(row?.count ?? 0)] as const;
     }),
   );

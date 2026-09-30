@@ -103,6 +103,9 @@ export const activities = sqliteTable("activities", {
   subject: text("subject"),
   body: text("body").notNull().default(""),
   occurredAt: text("occurred_at").notNull(),
+  // Meetings only: when it ends.
+  endsAt: text("ends_at"),
+  ownerEmail: text("owner_email"),
   ...timestamps,
 });
 
@@ -116,6 +119,7 @@ export const tasks = sqliteTable("tasks", {
   dueDate: text("due_date"),
   doneAt: text("done_at"),
   kind: text("kind", { enum: TASK_KINDS }).notNull().default("follow_up"),
+  ownerEmail: text("owner_email"),
   // The sent email an awaiting_reply task is waiting on.
   activityId: integer("activity_id").references(() => activities.id, {
     onDelete: "cascade",
