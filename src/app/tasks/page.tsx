@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { markReplyReceived } from "@/server/db/activities";
 import { listCompanies } from "@/server/db/companies";
 import { BUSINESSES, type Business } from "@/server/db/schema";
 import {
@@ -23,6 +24,7 @@ const TAB_LABEL: Record<TaskTab, string> = {
   overdue: "Overdue",
   today: "Today",
   upcoming: "Upcoming",
+  waiting: "Waiting on reply",
   done: "Done",
 };
 
@@ -30,6 +32,8 @@ const EMPTY_COPY: Record<TaskTab, string> = {
   overdue: "Nothing overdue. Nice.",
   today: "Nothing due today.",
   upcoming: "No upcoming follow-ups. Add one below.",
+  waiting:
+    "No emails waiting on a reply. Log a sent email on a company and set a reminder.",
   done: "No completed follow-ups yet.",
 };
 
@@ -81,6 +85,14 @@ export default async function TasksPage({
     } else {
       await completeTask(id);
     }
+    redirect(here);
+  }
+
+  async function gotReply(formData: FormData) {
+    "use server";
+    const id = Number(formData.get("id"));
+    if (!Number.isInteger(id)) return;
+    await markReplyReceived(id);
     redirect(here);
   }
 
@@ -173,29 +185,41 @@ export default async function TasksPage({
         <ul className="divide-y divide-zinc-200 rounded-lg border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
           {tasks.map((task) => (
             <li key={task.id} className="flex items-center gap-3 p-3">
-              <form action={toggle}>
-                <input type="hidden" name="id" value={task.id} />
-                <input
-                  type="hidden"
-                  name="done"
-                  value={task.doneAt ? "1" : "0"}
-                />
-                <button
-                  type="submit"
-                  aria-label={
-                    task.doneAt
-                      ? `Reopen ${task.title}`
-                      : `Mark ${task.title} done`
-                  }
-                  className={`flex size-6 items-center justify-center rounded border text-xs focus-visible:outline-2 focus-visible:outline-offset-2 ${
-                    task.doneAt
-                      ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
-                      : "border-zinc-400 dark:border-zinc-600"
-                  }`}
-                >
-                  {task.doneAt ? "✓" : ""}
-                </button>
-              </form>
+              {task.kind === "awaiting_reply" && !task.doneAt ? (
+                <form action={gotReply}>
+                  <input type="hidden" name="id" value={task.id} />
+                  <button
+                    type="submit"
+                    className="rounded border border-zinc-300 px-2 py-1 text-xs font-medium dark:border-zinc-700"
+                  >
+                    Got reply
+                  </button>
+                </form>
+              ) : (
+                <form action={toggle}>
+                  <input type="hidden" name="id" value={task.id} />
+                  <input
+                    type="hidden"
+                    name="done"
+                    value={task.doneAt ? "1" : "0"}
+                  />
+                  <button
+                    type="submit"
+                    aria-label={
+                      task.doneAt
+                        ? `Reopen ${task.title}`
+                        : `Mark ${task.title} done`
+                    }
+                    className={`flex size-6 items-center justify-center rounded border text-xs focus-visible:outline-2 focus-visible:outline-offset-2 ${
+                      task.doneAt
+                        ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
+                        : "border-zinc-400 dark:border-zinc-600"
+                    }`}
+                  >
+                    {task.doneAt ? "✓" : ""}
+                  </button>
+                </form>
+              )}
               <div className="min-w-0 flex-1">
                 <p
                   className={`truncate text-sm font-medium ${
@@ -220,7 +244,8 @@ export default async function TasksPage({
               </div>
               <span
                 className={`text-xs whitespace-nowrap ${
-                  tab === "overdue"
+                  tab === "overdue" ||
+                  (tab === "waiting" && task.dueDate && task.dueDate < today)
                     ? "font-medium text-red-600 dark:text-red-400"
                     : "text-zinc-500"
                 }`}

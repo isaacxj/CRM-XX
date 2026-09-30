@@ -13,6 +13,7 @@ import {
   createActivity,
   deleteActivity,
   listActivitiesForCompany,
+  markReplyReceived,
 } from "@/server/db/activities";
 import { ACTIVITY_TYPE_ICON, ACTIVITY_TYPE_LABEL } from "@/lib/activity";
 import { listTimelineForCompany } from "@/server/db/timeline";
@@ -199,7 +200,14 @@ export default async function CompanyPage({
       subject: str("subject"),
       body: str("body"),
       occurredAt: str("occurredAt") || null,
+      remindInDays: Number(str("remindInDays")) || null,
     });
+    redirect(`/companies/${companyId}`);
+  }
+
+  async function gotReply(formData: FormData) {
+    "use server";
+    await markReplyReceived(Number(formData.get("taskId")));
     redirect(`/companies/${companyId}`);
   }
 
@@ -567,6 +575,17 @@ export default async function CompanyPage({
                   )}
                 </div>
                 <div className="flex shrink-0 gap-3">
+                  {task.kind === "awaiting_reply" && !task.doneAt && (
+                    <form action={gotReply}>
+                      <input type="hidden" name="taskId" value={task.id} />
+                      <button
+                        type="submit"
+                        className="font-medium text-zinc-900 hover:underline dark:text-zinc-100"
+                      >
+                        Got reply
+                      </button>
+                    </form>
+                  )}
                   <form action={toggleTask}>
                     <input type="hidden" name="taskId" value={task.id} />
                     <input
@@ -637,6 +656,21 @@ export default async function CompanyPage({
             aria-label="Subject"
             className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
           />
+          <div className="flex items-center gap-2 text-sm">
+            <label htmlFor="remindInDays">
+              If this is a sent email, remind me in
+            </label>
+            <input
+              id="remindInDays"
+              name="remindInDays"
+              type="number"
+              min="0"
+              max="60"
+              defaultValue={3}
+              className="w-16 rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            />
+            <span>days if no reply (0 for no reminder)</span>
+          </div>
           <textarea
             name="body"
             rows={3}

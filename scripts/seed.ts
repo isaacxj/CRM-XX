@@ -153,32 +153,48 @@ async function main() {
         });
       }
 
-      await db.insert(schema.activities).values([
-        {
+      const seededActivities = await db
+        .insert(schema.activities)
+        .values([
+          {
+            companyId: inserted.id,
+            type: "note",
+            body: `Initial ${business === "statixx" ? "discovery call" : "demo"} went well.`,
+            occurredAt: "2026-09-20 15:00:00",
+          },
+          {
+            companyId: inserted.id,
+            type: "email_sent",
+            subject: "Following up on our conversation",
+            body: "Sent follow-up materials after the call.",
+            occurredAt: "2026-09-22 14:30:00",
+          },
+          {
+            companyId: inserted.id,
+            type: company.status === "client" ? "meeting" : "call",
+            subject:
+              company.status === "client" ? "Quarterly check-in" : "Intro call",
+            body:
+              company.status === "client"
+                ? "Checked in — happy with progress so far."
+                : "",
+            occurredAt: "2026-09-25 16:00:00",
+          },
+        ])
+        .returning();
+
+      // Every third company is still waiting on a reply to the sent email:
+      // half of them past due, the rest not yet.
+      if (index % 3 === 0) {
+        const sentEmail = seededActivities.find((a) => a.type === "email_sent");
+        await db.insert(schema.tasks).values({
           companyId: inserted.id,
-          type: "note",
-          body: `Initial ${business === "statixx" ? "discovery call" : "demo"} went well.`,
-          occurredAt: "2026-09-20 15:00:00",
-        },
-        {
-          companyId: inserted.id,
-          type: "email_sent",
-          subject: "Following up on our conversation",
-          body: "Sent follow-up materials after the call.",
-          occurredAt: "2026-09-22 14:30:00",
-        },
-        {
-          companyId: inserted.id,
-          type: company.status === "client" ? "meeting" : "call",
-          subject:
-            company.status === "client" ? "Quarterly check-in" : "Intro call",
-          body:
-            company.status === "client"
-              ? "Checked in — happy with progress so far."
-              : "",
-          occurredAt: "2026-09-25 16:00:00",
-        },
-      ]);
+          title: `Waiting on reply: ${sentEmail?.subject ?? "sent email"}`,
+          dueDate: index % 2 === 0 ? "2026-09-25" : "2026-10-06",
+          kind: "awaiting_reply",
+          activityId: sentEmail?.id,
+        });
+      }
 
       if (index % 2 === 0) {
         await db.insert(schema.tasks).values({

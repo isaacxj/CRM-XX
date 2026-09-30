@@ -13,7 +13,7 @@ import {
 } from "drizzle-orm";
 
 import { getDb } from "./index";
-import { companies, tasks, type Business } from "./schema";
+import { companies, tasks, type Business, type TaskKind } from "./schema";
 
 export async function listTasksForCompany(companyId: number) {
   const db = getDb();
@@ -79,6 +79,7 @@ export async function listDueFollowUps(business: Business) {
     .where(
       and(
         eq(companies.business, business),
+        eq(tasks.kind, "follow_up"),
         isNull(tasks.doneAt),
         lte(tasks.dueDate, today),
       ),
@@ -86,7 +87,52 @@ export async function listDueFollowUps(business: Business) {
     .orderBy(asc(tasks.dueDate));
 }
 
-export const TASK_TABS = ["overdue", "today", "upcoming", "done"] as const;
+export type WaitingRow = {
+  id: number;
+  title: string;
+  dueDate: string | null;
+  companyId: number | null;
+  companyName: string | null;
+  overdue: boolean;
+};
+
+// Open reminders for sent emails that haven't had a reply yet.
+export async function listWaitingOnReply(
+  business?: Business,
+): Promise<WaitingRow[]> {
+  const db = getDb();
+  const today = new Date().toISOString().slice(0, 10);
+  const rows = await db
+    .select({
+      id: tasks.id,
+      title: tasks.title,
+      dueDate: tasks.dueDate,
+      companyId: tasks.companyId,
+      companyName: companies.name,
+    })
+    .from(tasks)
+    .leftJoin(companies, eq(tasks.companyId, companies.id))
+    .where(
+      and(
+        eq(tasks.kind, "awaiting_reply"),
+        isNull(tasks.doneAt),
+        business ? eq(companies.business, business) : undefined,
+      ),
+    )
+    .orderBy(asc(tasks.dueDate), asc(tasks.id));
+  return rows.map((r) => ({
+    ...r,
+    overdue: r.dueDate !== null && r.dueDate < today,
+  }));
+}
+
+export const TASK_TABS = [
+  "overdue",
+  "today",
+  "upcoming",
+  "waiting",
+  "done",
+] as const;
 export type TaskTab = (typeof TASK_TABS)[number];
 
 export type TaskRow = {
@@ -97,17 +143,23 @@ export type TaskRow = {
   companyId: number | null;
   companyName: string | null;
   business: Business | null;
+  kind: TaskKind;
 };
 
+// Reminders on sent emails live in the Waiting tab, not the follow-up tabs.
 function tabFilter(tab: TaskTab, today: string) {
+  const followUp = eq(tasks.kind, "follow_up");
   switch (tab) {
     case "overdue":
-      return and(isNull(tasks.doneAt), lt(tasks.dueDate, today));
+      return and(followUp, isNull(tasks.doneAt), lt(tasks.dueDate, today));
     case "today":
-      return and(isNull(tasks.doneAt), eq(tasks.dueDate, today));
+      return and(followUp, isNull(tasks.doneAt), eq(tasks.dueDate, today));
+    case "waiting":
+      return and(eq(tasks.kind, "awaiting_reply"), isNull(tasks.doneAt));
     case "upcoming":
       // Open tasks due later, plus open tasks with no due date.
       return and(
+        followUp,
         isNull(tasks.doneAt),
         or(gt(tasks.dueDate, today), isNull(tasks.dueDate)),
       );
@@ -140,6 +192,7 @@ export async function listTasks(
       companyId: tasks.companyId,
       companyName: companies.name,
       business: companies.business,
+      kind: tasks.kind,
     })
     .from(tasks)
     .leftJoin(companies, eq(tasks.companyId, companies.id))

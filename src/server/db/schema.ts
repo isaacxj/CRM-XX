@@ -106,12 +106,20 @@ export const activities = sqliteTable("activities", {
   ...timestamps,
 });
 
+export const TASK_KINDS = ["follow_up", "awaiting_reply"] as const;
+export type TaskKind = (typeof TASK_KINDS)[number];
+
 export const tasks = sqliteTable("tasks", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   companyId: integer("company_id").references(() => companies.id),
   title: text("title").notNull(),
   dueDate: text("due_date"),
   doneAt: text("done_at"),
+  kind: text("kind", { enum: TASK_KINDS }).notNull().default("follow_up"),
+  // The sent email an awaiting_reply task is waiting on.
+  activityId: integer("activity_id").references(() => activities.id, {
+    onDelete: "cascade",
+  }),
   ...timestamps,
 });
 
