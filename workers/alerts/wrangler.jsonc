@@ -1,0 +1,28 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "crm-xx-alerts",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-25",
+  "compatibility_flags": ["nodejs_compat"],
+  // Weekday mornings: 13:00 UTC is 8am Central in summer and 7am in winter.
+  "triggers": { "crons": ["0 13 * * 1-5"] },
+  // Same database as the app.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "crm-xx",
+      "database_id": "local-dev",
+    },
+  ],
+  // Recipients must be verified addresses in Email Routing.
+  "send_email": [{ "name": "SEND_EMAIL" }],
+  "vars": {
+    "APP_URL": "http://localhost:3000",
+    // Must be an address on the domain that has Email Routing enabled.
+    "FROM_ADDRESS": "crm@example.com",
+    // Team addresses allowed to BCC or forward mail to the logging address.
+    "TEAM_EMAILS": "dev@example.com",
+    // Receives Gmail's forwarding-verification email.
+    "ADMIN_EMAIL": "dev@example.com",
+  },
+}

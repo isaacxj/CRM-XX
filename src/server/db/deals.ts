@@ -32,6 +32,8 @@ export async function listDealsForBoard(business: Business) {
       lostReason: deals.lostReason,
       companyId: deals.companyId,
       companyName: companies.name,
+      // When the deal entered its current stage: last stage change, else created.
+      stageSince: sql<string>`coalesce((select max(${dealEvents.createdAt}) from ${dealEvents} where ${dealEvents.dealId} = ${deals.id}), ${deals.createdAt})`,
     })
     .from(deals)
     .innerJoin(companies, eq(deals.companyId, companies.id))

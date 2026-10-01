@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { DealBoard } from "@/components/deal-board";
 import { listDealsForBoard, moveDealStage } from "@/server/db/deals";
 import {
   BUSINESSES,
@@ -37,12 +38,10 @@ function isBusiness(value: string): value is Business {
   return (BUSINESSES as readonly string[]).includes(value);
 }
 
-function formatCents(cents: number) {
-  return (cents / 100).toLocaleString("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  });
+function daysSince(timestamp: string) {
+  // SQLite timestamps are UTC "YYYY-MM-DD HH:MM:SS".
+  const then = new Date(`${timestamp.replace(" ", "T")}Z`).getTime();
+  return Math.max(0, Math.floor((Date.now() - then) / 86_400_000));
 }
 
 export default async function DealsPage({
@@ -105,86 +104,26 @@ export default async function DealsPage({
         </div>
       </div>
 
-      <div className="flex flex-1 gap-4 overflow-x-auto pb-4">
-        {stages.map((stage) => {
-          const stageDeals = deals.filter((deal) => deal.stage === stage);
-          const stageTotal = stageDeals.reduce(
-            (sum, deal) => sum + deal.amountCents,
-            0,
-          );
-
-          return (
-            <div
-              key={stage}
-              className="flex w-64 shrink-0 flex-col gap-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800"
-            >
-              <div>
-                <h2 className="text-sm font-semibold">
-                  {DEAL_STAGE_LABEL[stage]}
-                </h2>
-                <p className="text-xs text-zinc-500">
-                  {stageDeals.length} · {formatCents(stageTotal)}
-                </p>
-              </div>
-
-              <div className="flex flex-col gap-3">
-                {stageDeals.length === 0 && (
-                  <p className="text-xs text-zinc-400">No deals</p>
-                )}
-                {stageDeals.map((deal) => (
-                  <div
-                    key={deal.id}
-                    className="rounded border border-zinc-100 p-3 text-sm dark:border-zinc-900"
-                  >
-                    <Link
-                      href={`/companies/${deal.companyId}`}
-                      className="font-medium hover:underline"
-                    >
-                      {deal.title}
-                    </Link>
-                    <p className="text-zinc-500">{deal.companyName}</p>
-                    <p className="mt-1 text-zinc-500">
-                      {formatCents(deal.amountCents)} ·{" "}
-                      {DEAL_BILLING_LABEL[deal.billing]}
-                    </p>
-                    <form
-                      action={moveDeal}
-                      className="mt-2 flex flex-col gap-2"
-                    >
-                      <input type="hidden" name="dealId" value={deal.id} />
-                      <input type="hidden" name="business" value={business} />
-                      <select
-                        name="stage"
-                        defaultValue={deal.stage}
-                        className="rounded border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
-                      >
-                        {stages.map((s) => (
-                          <option key={s} value={s}>
-                            {DEAL_STAGE_LABEL[s]}
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        name="lostReason"
-                        type="text"
-                        defaultValue={deal.lostReason ?? ""}
-                        placeholder="Reason if Lost"
-                        className="rounded border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
-                      />
-                      <button
-                        type="submit"
-                        className="rounded border border-zinc-300 px-2 py-1 text-xs font-medium dark:border-zinc-700"
-                      >
-                        Move
-                      </button>
-                    </form>
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      <DealBoard
+        business={business}
+        stages={stages.map((value) => ({
+          value,
+          label: DEAL_STAGE_LABEL[value],
+        }))}
+        deals={deals.map((deal) => ({
+          id: deal.id,
+          title: deal.title,
+          stage: deal.stage,
+          amountCents: deal.amountCents,
+          billingLabel: DEAL_BILLING_LABEL[deal.billing],
+          closeDate: deal.closeDate,
+          lostReason: deal.lostReason,
+          companyId: deal.companyId,
+          companyName: deal.companyName,
+          daysInStage: daysSince(deal.stageSince),
+        }))}
+        moveAction={moveDeal}
+      />
     </div>
   );
 }
