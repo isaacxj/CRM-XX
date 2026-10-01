@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 
+import { ThemeToggle } from "@/components/theme-toggle";
 import type { Business } from "@/server/db/schema";
 
 const BUSINESS_OPTIONS: { value: Business | "all"; label: string }[] = [
@@ -26,6 +27,7 @@ const SIDEBAR_ONLY = [
   { href: "/revenue", label: "Revenue" },
   { href: "/export", label: "Export" },
   { href: "/digest", label: "Morning digest" },
+  { href: "/design", label: "Design" },
 ];
 
 function isTypingTarget(target: EventTarget | null) {
@@ -80,11 +82,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
   useSearchShortcut();
 
   return (
-    <div className="flex flex-1 flex-col md:flex-row">
-      <aside className="hidden w-56 flex-col gap-6 border-r border-zinc-200 p-4 md:flex dark:border-zinc-800">
+    <div
+      data-business={activeBusiness}
+      className="flex flex-1 flex-col md:flex-row"
+    >
+      <aside className="border-border hidden w-56 flex-col gap-6 border-r p-4 md:flex">
         <Link
           href="/quick-add"
-          className="rounded bg-zinc-900 px-3 py-2 text-center text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
+          className="bg-accent text-accent-foreground rounded-md px-3 py-2 text-center text-sm font-medium"
         >
           Quick add
         </Link>
@@ -129,10 +134,18 @@ export function Shell({ children }: { children: React.ReactNode }) {
                     : "text-zinc-600 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-900"
                 }`}
               >
+                <span
+                  data-business={option.value}
+                  aria-hidden
+                  className="bg-accent mr-2 inline-block size-2 rounded-full"
+                />
                 {option.label}
               </Link>
             ))}
           </div>
+        </div>
+        <div className="mt-auto">
+          <ThemeToggle />
         </div>
       </aside>
 
