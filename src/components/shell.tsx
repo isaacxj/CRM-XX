@@ -22,6 +22,7 @@ const NAV_ITEMS = [
 
 // Desktop sidebar only; the phone nav is already full.
 const SIDEBAR_ONLY = [
+  { href: "/search", label: "Search" },
   { href: "/revenue", label: "Revenue" },
   { href: "/digest", label: "Morning digest" },
 ];
@@ -56,7 +57,7 @@ function useSearchShortcut() {
       }
 
       event.preventDefault();
-      router.push("/companies?focus=1");
+      router.push("/search");
     }
 
     window.addEventListener("keydown", onKeyDown);
