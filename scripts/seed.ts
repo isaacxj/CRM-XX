@@ -10,6 +10,7 @@ const OWNERS = [
 ];
 
 const utc = (d: Date) => d.toISOString().slice(0, 19).replace("T", " ");
+const daysAgo = (n: number) => utc(new Date(Date.now() - n * 86_400_000));
 
 const STATIXX_COMPANIES = [
   {
@@ -110,6 +111,12 @@ async function main() {
       business === "statixx" ? STATIXX_DEAL_STAGES : TRAZO_DEAL_STAGES;
 
     for (const [index, company] of list.entries()) {
+      // One prospect per business has had nothing for a month, so Home's
+      // Going cold list has something to show.
+      const cold = index === 2;
+      const coldStamp = { createdAt: daysAgo(35), updatedAt: daysAgo(35) };
+      const when = (recent: string, coldDays: number) =>
+        cold ? daysAgo(coldDays) : recent;
       const [inserted] = await db
         .insert(schema.companies)
         .values({
@@ -118,6 +125,7 @@ async function main() {
           website: `https://${company.name.toLowerCase().replace(/[^a-z]+/g, "")}.com`,
           status: company.status,
           source: company.source,
+          ...(cold ? coldStamp : {}),
         })
         .returning();
 
@@ -137,7 +145,8 @@ async function main() {
           companyId: inserted.id,
           title: `${company.name} ${business === "statixx" ? "engagement" : "subscription"}`,
           stage,
-          createdAt: "2026-09-05 12:00:00",
+          createdAt: when("2026-09-05 12:00:00", 35),
+          ...(cold ? { updatedAt: daysAgo(35) } : {}),
           amountCents:
             business === "statixx"
               ? 25_000_00 + index * 5_000_00
@@ -157,7 +166,7 @@ async function main() {
           dealId: deal.id,
           fromStage: path[step],
           toStage,
-          createdAt: `2026-09-${day} 15:00:00`,
+          createdAt: when(`2026-09-${day} 15:00:00`, 34 - step),
         });
       }
 
@@ -168,14 +177,14 @@ async function main() {
             companyId: inserted.id,
             type: "note",
             body: `Initial ${business === "statixx" ? "discovery call" : "demo"} went well.`,
-            occurredAt: "2026-09-20 15:00:00",
+            occurredAt: when("2026-09-20 15:00:00", 33),
           },
           {
             companyId: inserted.id,
             type: "email_sent",
             subject: "Following up on our conversation",
             body: "Sent follow-up materials after the call.",
-            occurredAt: "2026-09-22 14:30:00",
+            occurredAt: when("2026-09-22 14:30:00", 31),
           },
           {
             companyId: inserted.id,
@@ -186,7 +195,7 @@ async function main() {
               company.status === "client"
                 ? "Checked in — happy with progress so far."
                 : "",
-            occurredAt: "2026-09-25 16:00:00",
+            occurredAt: when("2026-09-25 16:00:00", 30),
           },
         ])
         .returning();
@@ -226,6 +235,7 @@ async function main() {
         await db.insert(schema.tasks).values({
           companyId: inserted.id,
           title: `Follow up with ${company.name}`,
+          ...(cold ? coldStamp : {}),
           ownerEmail: OWNERS[index % 2],
           dueDate:
             index % 6 === 0

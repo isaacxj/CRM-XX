@@ -20,6 +20,14 @@ const NAV_ITEMS = [
   { href: "/tasks", label: "Tasks" },
 ];
 
+// Desktop sidebar only; the phone nav is already full.
+const SIDEBAR_ONLY = [
+  { href: "/search", label: "Search" },
+  { href: "/revenue", label: "Revenue" },
+  { href: "/export", label: "Export" },
+  { href: "/digest", label: "Morning digest" },
+];
+
 function isTypingTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false;
   const tag = target.tagName.toLowerCase();
@@ -50,7 +58,7 @@ function useSearchShortcut() {
       }
 
       event.preventDefault();
-      router.push("/companies?focus=1");
+      router.push("/search");
     }
 
     window.addEventListener("keydown", onKeyDown);
@@ -61,7 +69,8 @@ function useSearchShortcut() {
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const isDeals = pathname.startsWith("/deals");
+  const isDeals =
+    pathname.startsWith("/deals") || pathname.startsWith("/revenue");
   const activeBusiness =
     searchParams.get("business") ?? (isDeals ? "statixx" : "all");
   const businessOptions = isDeals
@@ -80,7 +89,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           Quick add
         </Link>
         <nav className="flex flex-col gap-1">
-          {NAV_ITEMS.map((item) => (
+          {[...NAV_ITEMS, ...SIDEBAR_ONLY].map((item) => (
             <Link
               key={item.href}
               href={item.href}
@@ -108,7 +117,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
                 key={option.value}
                 href={
                   isDeals
-                    ? `/deals?business=${option.value}`
+                    ? `${pathname.startsWith("/revenue") ? "/revenue" : "/deals"}?business=${option.value}`
                     : option.value === "all"
                       ? "/companies"
                       : `/companies?business=${option.value}`
