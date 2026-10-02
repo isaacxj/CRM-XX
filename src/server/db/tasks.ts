@@ -95,6 +95,63 @@ export async function listDueFollowUps(
     .orderBy(asc(tasks.dueDate));
 }
 
+export type TodayFollowUp = {
+  id: number;
+  title: string;
+  dueDate: string | null;
+  companyId: number | null;
+  companyName: string | null;
+  business: Business | null;
+  ownerEmail: string | null;
+};
+
+// Open follow-ups due today or earlier across both businesses, including
+// standalone tasks with no company. Filter by business hides standalone ones.
+export async function listTodayFollowUps(
+  business?: Business,
+  owner?: string | null,
+): Promise<TodayFollowUp[]> {
+  const db = getDb();
+  const today = new Date().toISOString().slice(0, 10);
+  return db
+    .select({
+      id: tasks.id,
+      title: tasks.title,
+      dueDate: tasks.dueDate,
+      companyId: tasks.companyId,
+      companyName: companies.name,
+      business: companies.business,
+      ownerEmail: tasks.ownerEmail,
+    })
+    .from(tasks)
+    .leftJoin(companies, eq(tasks.companyId, companies.id))
+    .where(
+      and(
+        eq(tasks.kind, "follow_up"),
+        isNull(tasks.doneAt),
+        lte(tasks.dueDate, today),
+        business ? eq(companies.business, business) : undefined,
+        owner ? eq(tasks.ownerEmail, owner) : undefined,
+      ),
+    )
+    .orderBy(asc(tasks.dueDate), asc(tasks.id));
+}
+
+// Push a task's due date to `days` from today (UTC date, like the rest of the
+// due-date logic).
+export async function snoozeTask(id: number, days: number) {
+  const db = getDb();
+  const due = new Date();
+  due.setUTCDate(due.getUTCDate() + days);
+  await db
+    .update(tasks)
+    .set({
+      dueDate: due.toISOString().slice(0, 10),
+      updatedAt: sql`(current_timestamp)`,
+    })
+    .where(eq(tasks.id, id));
+}
+
 export type WaitingRow = {
   id: number;
   title: string;

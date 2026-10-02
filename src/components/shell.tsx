@@ -161,6 +161,7 @@ function businessHref(
   value: Business | "all",
   perBusinessOnly: boolean,
 ) {
+  if (pathname === "/") return value === "all" ? "/" : `/?business=${value}`;
   if (pathname.startsWith("/revenue")) return `/revenue?business=${value}`;
   if (perBusinessOnly) return `/deals?business=${value}`;
   return value === "all" ? "/companies" : `/companies?business=${value}`;

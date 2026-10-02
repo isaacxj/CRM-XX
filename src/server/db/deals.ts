@@ -1,4 +1,4 @@
-import { asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, isNull, notInArray, sql } from "drizzle-orm";
 
 import { getDb } from "./index";
 import {
@@ -102,4 +102,41 @@ export async function moveDealStage(
 export async function deleteDeal(id: number) {
   const db = getDb();
   await db.delete(deals).where(eq(deals.id, id));
+}
+
+export type PipelineSnapshotRow = {
+  business: Business;
+  stage: string;
+  count: number;
+  cents: number;
+};
+
+// Open deals (not won or lost) grouped by business and stage, for the Today
+// page's pipeline bars. Archived companies are left out.
+export async function getPipelineSnapshot(
+  business?: Business,
+): Promise<PipelineSnapshotRow[]> {
+  const db = getDb();
+  const rows = await db
+    .select({
+      business: companies.business,
+      stage: deals.stage,
+      count: sql<number>`count(*)`,
+      cents: sql<number>`coalesce(sum(${deals.amountCents}), 0)`,
+    })
+    .from(deals)
+    .innerJoin(companies, eq(deals.companyId, companies.id))
+    .where(
+      and(
+        isNull(companies.archivedAt),
+        notInArray(deals.stage, ["won", "lost"]),
+        business ? eq(companies.business, business) : undefined,
+      ),
+    )
+    .groupBy(companies.business, deals.stage);
+  return rows.map((r) => ({
+    ...r,
+    count: Number(r.count),
+    cents: Number(r.cents),
+  }));
 }
