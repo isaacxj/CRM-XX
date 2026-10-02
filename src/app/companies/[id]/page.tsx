@@ -1,6 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 
+import { ConfirmSubmit } from "@/components/kit/confirm-dialog";
+
 import { archiveCompany, getCompany } from "@/server/db/companies";
 import { deleteContact, listContactsForCompany } from "@/server/db/contacts";
 import {
@@ -273,14 +275,13 @@ export default async function CompanyPage({
           >
             Edit
           </Link>
-          <form action={archive}>
-            <button
-              type="submit"
-              className="rounded border border-zinc-300 px-4 py-2 text-sm font-medium text-red-600 dark:border-zinc-700"
-            >
-              Archive
-            </button>
-          </form>
+          <ConfirmSubmit
+            action={archive}
+            trigger="Archive"
+            title={`Archive ${company.name}?`}
+            description="It leaves the lists and Home. Its contacts, deals, and history are kept."
+            confirmLabel="Archive company"
+          />
         </div>
       </div>
 

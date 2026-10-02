@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { env } from "@/env";
+import { ToastProvider } from "@/components/kit/toast";
 import { Shell } from "@/components/shell";
 import { getCurrentUserEmail } from "@/server/user";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
@@ -39,7 +40,9 @@ export default async function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
       <body className="flex min-h-full flex-col">
-        <Shell userEmail={userEmail}>{children}</Shell>
+        <ToastProvider>
+          <Shell userEmail={userEmail}>{children}</Shell>
+        </ToastProvider>
       </body>
     </html>
   );

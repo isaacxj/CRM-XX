@@ -1,3 +1,15 @@
+import { Avatar } from "@/components/kit/avatar";
+import { ConfirmSubmit } from "@/components/kit/confirm-dialog";
+import { DataTable, EmptyState, Td, Th, Tr } from "@/components/kit/data-table";
+import { PageHeader } from "@/components/kit/page-header";
+import { Skeleton } from "@/components/kit/skeleton";
+import { StatCard } from "@/components/kit/stat-card";
+import {
+  BusinessBadge,
+  StageBadge,
+  StatusBadge,
+} from "@/components/kit/status-badges";
+import { ToastDemo } from "./toast-demo";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -100,6 +112,77 @@ function Sample({
   );
 }
 
+async function noop() {
+  "use server";
+}
+
+function Kit() {
+  return (
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title="Page header"
+        description="Title, a one-line description, and actions."
+        actions={<Button size="sm">Add company</Button>}
+      />
+      <div className="grid gap-3 sm:grid-cols-3">
+        <StatCard label="Open pipeline" value="$45,000" hint="6 deals" />
+        <StatCard label="Win rate" value="50%" hint="Last 90 days" />
+        <StatCard label="MRR" value="$1,000" />
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Avatar name="Acme Corp" />
+        <Avatar name="Dana Whitfield" size="sm" />
+        <BusinessBadge business="statixx" />
+        <BusinessBadge business="trazo" />
+        <StatusBadge status="prospect" />
+        <StatusBadge status="client" />
+        <StageBadge stage="Proposal Sent" />
+        <StageBadge stage="Won" />
+        <StageBadge stage="Lost" />
+      </div>
+      <DataTable className="max-h-64">
+        <thead>
+          <tr>
+            <Th>Name</Th>
+            <Th href="/design" sort="desc">
+              Last activity
+            </Th>
+          </tr>
+        </thead>
+        <tbody>
+          {["Acme Corp", "Northwind", "Globex"].map((name, i) => (
+            <Tr key={name} href="/design">
+              <Td>{name}</Td>
+              <Td className="num text-muted-foreground">{i + 1} days ago</Td>
+            </Tr>
+          ))}
+        </tbody>
+      </DataTable>
+      <p className="text-muted-foreground text-xs">
+        Focus a row, then use arrow keys or j and k to move and Enter to open.
+      </p>
+      <EmptyState
+        title="Nothing here yet. Add a company to get started."
+        action={<Button>Add company</Button>}
+      />
+      <div className="flex flex-col gap-2">
+        <Skeleton className="h-9 w-full" />
+        <Skeleton className="h-9 w-2/3" />
+      </div>
+      <div className="flex flex-wrap items-start gap-3">
+        <ToastDemo />
+        <ConfirmSubmit
+          action={noop}
+          trigger="Confirm dialog"
+          title="Archive Acme Corp?"
+          description="It leaves the lists and Home. Its history is kept."
+          confirmLabel="Archive company"
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function DesignPage() {
   return (
     <div className="mx-auto w-full max-w-6xl p-4 md:p-8">
@@ -116,6 +199,9 @@ export default function DesignPage() {
         <Sample theme="light" business="trazo" />
         <Sample theme="dark" business="trazo" />
       </div>
+
+      <h2 className="mt-8 mb-3 text-lg font-medium">UI kit</h2>
+      <Kit />
 
       <h2 className="mt-8 mb-3 text-lg font-medium">Type</h2>
       <div className="flex flex-col gap-1">
