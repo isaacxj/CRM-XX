@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { env } from "@/env";
 import { Shell } from "@/components/shell";
+import { getCurrentUserEmail } from "@/server/user";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
@@ -21,11 +22,13 @@ export const metadata: Metadata = {
   description: "Internal CRM for Statixx and Trazo.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const userEmail = await getCurrentUserEmail();
+
   return (
     <html
       lang="en"
@@ -36,7 +39,7 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
       <body className="flex min-h-full flex-col">
-        <Shell>{children}</Shell>
+        <Shell userEmail={userEmail}>{children}</Shell>
       </body>
     </html>
   );

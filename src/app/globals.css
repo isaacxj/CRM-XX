@@ -56,6 +56,17 @@
 }
 
 /* Statixx is indigo (the default above); Trazo is emerald; "all" is neutral. */
+[data-business="statixx"] {
+  --accent: oklch(0.511 0.262 276.966);
+  --accent-foreground: oklch(1 0 0);
+  --accent-soft: oklch(0.96 0.02 277);
+}
+.dark [data-business="statixx"],
+[data-business="statixx"].dark {
+  --accent: oklch(0.673 0.182 276.935);
+  --accent-foreground: oklch(0.141 0.005 285.823);
+  --accent-soft: oklch(0.26 0.06 277);
+}
 [data-business="trazo"] {
   --accent: oklch(0.508 0.118 165.612);
   --accent-foreground: oklch(1 0 0);
