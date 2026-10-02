@@ -1,23 +1,17 @@
 "use client";
 
 import {
-  BarChart3,
   Building2,
   CheckSquare,
   ChevronDown,
-  Download,
   Handshake,
   Home,
-  Mail,
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
-  Palette,
   Plus,
   Search,
-  Users,
   X,
-  type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -29,42 +23,11 @@ import {
   type ReactNode,
 } from "react";
 
+import { CommandPalette, openPalette } from "@/components/command-palette";
+import { NAV_GROUPS, type NavItem } from "@/components/nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/cn";
 import type { Business } from "@/server/db/schema";
-
-type NavItem = { href: string; label: string; Icon: LucideIcon };
-
-const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
-  {
-    label: "Work",
-    items: [
-      { href: "/", label: "Home", Icon: Home },
-      { href: "/tasks", label: "Tasks", Icon: CheckSquare },
-      { href: "/deals", label: "Deals", Icon: Handshake },
-    ],
-  },
-  {
-    label: "Records",
-    items: [
-      { href: "/companies", label: "Companies", Icon: Building2 },
-      { href: "/contacts", label: "Contacts", Icon: Users },
-      { href: "/search", label: "Search", Icon: Search },
-    ],
-  },
-  {
-    label: "Reports",
-    items: [
-      { href: "/revenue", label: "Revenue", Icon: BarChart3 },
-      { href: "/digest", label: "Morning digest", Icon: Mail },
-      { href: "/export", label: "Export", Icon: Download },
-    ],
-  },
-  {
-    label: "System",
-    items: [{ href: "/design", label: "Design", Icon: Palette }],
-  },
-];
 
 const PHONE_TABS: NavItem[] = [
   { href: "/", label: "Home", Icon: Home },
@@ -413,17 +376,18 @@ function TopBar({
           ))}
         </ol>
       </nav>
-      <Link
-        href="/search"
+      <button
+        type="button"
+        onClick={openPalette}
+        aria-label="Search or run a command"
         className="border-border bg-surface text-muted-foreground hover:bg-surface-hover flex h-9 items-center gap-2 rounded-md border px-3 text-sm transition-colors max-md:size-11 max-md:justify-center max-md:px-0"
       >
         <Search className="size-4" aria-hidden />
-        <span className="hidden md:inline">Search</span>
+        <span className="hidden md:inline">Search or jump to…</span>
         <kbd className="num border-border hidden rounded border px-1 text-xs md:inline">
-          /
+          ⌘K
         </kbd>
-        <span className="sr-only md:hidden">Search</span>
-      </Link>
+      </button>
       <div className="hidden md:block">
         <ThemeToggle />
       </div>
@@ -600,6 +564,7 @@ export function Shell({
         <TopBar pathname={pathname} switcher={switcher} email={userEmail} />
         <main className="flex flex-1 flex-col pb-16 md:pb-0">{children}</main>
       </div>
+      <CommandPalette />
       <PhoneNav pathname={pathname} onMenu={() => setMenuPath(pathname)} />
       {menuOpen && (
         <MenuSheet
