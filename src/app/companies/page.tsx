@@ -1,5 +1,13 @@
 import Link from "next/link";
 
+import { DataTable, EmptyState, Td, Th, Tr } from "@/components/kit/data-table";
+import { Avatar } from "@/components/kit/avatar";
+import { PageHeader } from "@/components/kit/page-header";
+import { BusinessBadge, StatusBadge } from "@/components/kit/status-badges";
+import { ToastOnMount } from "@/components/kit/toast";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { formatDaysAgo } from "@/lib/activity";
 import { listCompanies } from "@/server/db/companies";
 import {
   BUSINESSES,
@@ -47,55 +55,72 @@ export default async function CompaniesPage({
   const business = isBusiness(businessParam) ? businessParam : undefined;
   const status = isStatus(statusParam) ? statusParam : undefined;
   const focusSearch = params.focus === "1";
+  const sort = params.sort === "last_activity" ? "last_activity" : "name";
+  const dir = params.dir === "desc" ? "desc" : "asc";
 
   const companies = await listCompanies({
     business,
     status,
     q: q || undefined,
+    sort,
+    dir,
   });
 
-  return (
-    <div className="flex flex-1 flex-col gap-6 p-6 md:p-8">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">Companies</h1>
-        <div className="flex gap-2">
-          <Link
-            href="/companies/import"
-            className="rounded border border-zinc-300 px-4 py-2 text-sm font-medium dark:border-zinc-700"
-          >
-            Import CSV
-          </Link>
-          <Link
-            href="/companies/new"
-            className="rounded bg-zinc-900 px-4 py-2 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
-          >
-            Add company
-          </Link>
-        </div>
-      </div>
+  // Clicking Last activity sorts stalest first, then flips.
+  const sortParams = new URLSearchParams();
+  if (business) sortParams.set("business", business);
+  if (status) sortParams.set("status", status);
+  if (q) sortParams.set("q", q);
+  sortParams.set("sort", "last_activity");
+  sortParams.set(
+    "dir",
+    sort === "last_activity" && dir === "asc" ? "desc" : "asc",
+  );
 
-      {importedParam !== null && (
-        <p className="rounded border border-zinc-300 bg-zinc-50 px-4 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900">
-          Imported {importedParam} compan{importedParam === 1 ? "y" : "ies"}
-          {contactsParam
-            ? ` and ${contactsParam} contact${contactsParam === 1 ? "" : "s"}`
-            : ""}
-          {skippedParam
-            ? `. Skipped ${skippedParam} row${skippedParam === 1 ? "" : "s"} that were missing a name or already existed.`
-            : "."}
-        </p>
-      )}
+  const selectCls =
+    "border-border-strong bg-surface-raised text-foreground h-9 rounded-md border px-3 text-sm";
+  const importMessage =
+    importedParam !== null
+      ? `Imported ${importedParam} ${importedParam === 1 ? "company" : "companies"}` +
+        (contactsParam
+          ? ` and ${contactsParam} contact${contactsParam === 1 ? "" : "s"}`
+          : "") +
+        (skippedParam
+          ? `. Skipped ${skippedParam} row${skippedParam === 1 ? "" : "s"} that were missing a name or already existed.`
+          : ".")
+      : null;
+
+  return (
+    <div className="flex flex-1 flex-col gap-6 p-4 md:p-8">
+      {importMessage && <ToastOnMount message={importMessage} />}
+      <PageHeader
+        title="Companies"
+        description={`${companies.length} ${companies.length === 1 ? "company" : "companies"}`}
+        actions={
+          <>
+            <Link
+              href="/companies/import"
+              className={buttonVariants({ variant: "secondary" })}
+            >
+              Import CSV
+            </Link>
+            <Link href="/companies/new" className={buttonVariants()}>
+              Add company
+            </Link>
+          </>
+        }
+      />
 
       <form className="flex flex-wrap items-end gap-3" method="get">
         <div className="flex flex-col gap-1">
-          <label htmlFor="business" className="text-xs text-zinc-500">
+          <label htmlFor="business" className="text-muted-foreground text-xs">
             Business
           </label>
           <select
             id="business"
             name="business"
             defaultValue={business ?? ""}
-            className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            className={selectCls}
           >
             <option value="">All</option>
             {BUSINESSES.map((value) => (
@@ -106,14 +131,14 @@ export default async function CompaniesPage({
           </select>
         </div>
         <div className="flex flex-col gap-1">
-          <label htmlFor="status" className="text-xs text-zinc-500">
+          <label htmlFor="status" className="text-muted-foreground text-xs">
             Status
           </label>
           <select
             id="status"
             name="status"
             defaultValue={status ?? ""}
-            className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            className={selectCls}
           >
             <option value="">All</option>
             {COMPANY_STATUSES.map((value) => (
@@ -124,70 +149,83 @@ export default async function CompaniesPage({
           </select>
         </div>
         <div className="flex flex-col gap-1">
-          <label htmlFor="q" className="text-xs text-zinc-500">
+          <label htmlFor="q" className="text-muted-foreground text-xs">
             Search by name
           </label>
-          <input
+          <Input
             id="q"
             name="q"
             type="search"
             defaultValue={q}
             placeholder="Company name"
             autoFocus={focusSearch}
-            className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            className="w-56"
           />
         </div>
-        <button
-          type="submit"
-          className="rounded border border-zinc-300 px-4 py-2 text-sm font-medium dark:border-zinc-700"
-        >
+        {sort === "last_activity" && (
+          <>
+            <input type="hidden" name="sort" value={sort} />
+            <input type="hidden" name="dir" value={dir} />
+          </>
+        )}
+        <Button type="submit" variant="secondary">
           Filter
-        </button>
+        </Button>
       </form>
 
       {companies.length === 0 ? (
-        <p className="text-sm text-zinc-500">
-          No companies match these filters yet.{" "}
-          <Link href="/companies/new" className="underline">
-            Add one
-          </Link>{" "}
-          to get started.
-        </p>
+        <EmptyState
+          title="No companies match these filters yet. Add one or import a CSV to get started."
+          action={
+            <Link href="/companies/new" className={buttonVariants()}>
+              Add company
+            </Link>
+          }
+        />
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[480px] text-left text-sm">
-            <thead>
-              <tr className="border-b border-zinc-200 text-zinc-500 dark:border-zinc-800">
-                <th className="py-2 font-medium">Name</th>
-                <th className="py-2 font-medium">Business</th>
-                <th className="py-2 font-medium">Status</th>
-                <th className="py-2 font-medium">Website</th>
-              </tr>
-            </thead>
-            <tbody>
-              {companies.map((company) => (
-                <tr
-                  key={company.id}
-                  className="border-b border-zinc-100 dark:border-zinc-900"
-                >
-                  <td className="py-2">
-                    <Link
-                      href={`/companies/${company.id}`}
-                      className="font-medium hover:underline"
-                    >
-                      {company.name}
-                    </Link>
-                  </td>
-                  <td className="py-2">{BUSINESS_LABEL[company.business]}</td>
-                  <td className="py-2">{STATUS_LABEL[company.status]}</td>
-                  <td className="py-2 text-zinc-500">
-                    {company.website ?? "—"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable>
+          <thead>
+            <tr>
+              <Th>Name</Th>
+              <Th>Business</Th>
+              <Th>Status</Th>
+              <Th>Website</Th>
+              <Th
+                href={`/companies?${sortParams.toString()}`}
+                sort={sort === "last_activity" ? dir : "none"}
+              >
+                Last activity
+              </Th>
+            </tr>
+          </thead>
+          <tbody>
+            {companies.map((company) => (
+              <Tr key={company.id} href={`/companies/${company.id}`}>
+                <Td>
+                  <Link
+                    href={`/companies/${company.id}`}
+                    className="flex items-center gap-2 font-medium hover:underline"
+                  >
+                    <Avatar name={company.name} size="sm" />
+                    {company.name}
+                  </Link>
+                </Td>
+                <Td>
+                  <BusinessBadge business={company.business} />
+                </Td>
+                <Td>
+                  <StatusBadge status={company.status} />
+                </Td>
+                <Td className="text-muted-foreground">
+                  {company.website ?? "—"}
+                </Td>
+                <Td className="num text-muted-foreground">
+                  {formatDaysAgo(company.lastActivityAt)}
+                </Td>
+              </Tr>
+            ))}
+          </tbody>
+        </DataTable>
       )}
     </div>
   );
