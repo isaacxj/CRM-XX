@@ -1,9 +1,36 @@
 import { notFound, redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import Link from "next/link";
+import {
+  Calendar,
+  CheckCircle2,
+  ExternalLink,
+  Handshake,
+  Mail,
+  MessageSquare,
+  Phone,
+  Plus,
+  StickyNote,
+  ArrowRightLeft,
+} from "lucide-react";
 
+import { Composer } from "@/components/company/composer";
+import { InlineField } from "@/components/company/inline-field";
+import { Avatar } from "@/components/kit/avatar";
 import { ConfirmSubmit } from "@/components/kit/confirm-dialog";
+import { PageHeader } from "@/components/kit/page-header";
+import { BusinessBadge, StatusBadge } from "@/components/kit/status-badges";
+import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { cn } from "@/lib/cn";
 
-import { archiveCompany, getCompany } from "@/server/db/companies";
+import {
+  archiveCompany,
+  getCompany,
+  getCompanyLastActivity,
+  updateCompanyFields,
+} from "@/server/db/companies";
 import { deleteContact, listContactsForCompany } from "@/server/db/contacts";
 import {
   createDeal,
@@ -14,12 +41,11 @@ import {
 import {
   createActivity,
   deleteActivity,
-  listActivitiesForCompany,
   markReplyReceived,
 } from "@/server/db/activities";
 import {
-  ACTIVITY_TYPE_ICON,
   ACTIVITY_TYPE_LABEL,
+  formatDaysAgo,
   formatMeetingTime,
   ownerLabel,
 } from "@/lib/activity";
@@ -33,6 +59,7 @@ import {
 } from "@/server/db/tasks";
 import {
   ACTIVITY_TYPES,
+  COMPANY_STATUSES,
   DEAL_BILLING,
   STATIXX_STAGES,
   TRAZO_STAGES,
@@ -88,6 +115,14 @@ const DEAL_STAGE_LABEL: Record<DealStage, string> = {
   lost: "Lost",
 };
 
+const ACTIVITY_ICON = {
+  note: StickyNote,
+  email_sent: Mail,
+  email_received: MessageSquare,
+  call: Phone,
+  meeting: Calendar,
+} as const;
+
 const DEAL_BILLING_LABEL: Record<DealBilling, string> = {
   one_time: "One-time",
   monthly: "Monthly",
@@ -110,9 +145,9 @@ export default async function CompanyPage({
 
   const contacts = await listContactsForCompany(companyId);
   const deals = await listDealsForCompany(companyId);
-  const activities = await listActivitiesForCompany(companyId);
   const tasks = await listTasksForCompany(companyId);
   const timeline = await listTimelineForCompany(companyId);
+  const lastActivityAt = await getCompanyLastActivity(companyId);
   const stages = company.business === "statixx" ? STATIXX_STAGES : TRAZO_STAGES;
 
   async function archive() {
@@ -210,7 +245,30 @@ export default async function CompanyPage({
       endsAt: str("endsAt") || null,
       remindInDays: Number(str("remindInDays")) || null,
     });
-    redirect(`/companies/${companyId}`);
+    revalidatePath(`/companies/${companyId}`);
+  }
+
+  async function updateField(formData: FormData) {
+    "use server";
+    const field = formData.get("field");
+    const raw = formData.get("value");
+    const value = typeof raw === "string" ? raw.trim() : "";
+    if (field === "name") {
+      if (!value) throw new Error("Name can't be empty.");
+      await updateCompanyFields(companyId, { name: value });
+    } else if (field === "website") {
+      await updateCompanyFields(companyId, { website: value || null });
+    } else if (field === "source") {
+      await updateCompanyFields(companyId, { source: value || null });
+    } else if (
+      field === "status" &&
+      (COMPANY_STATUSES as readonly string[]).includes(value)
+    ) {
+      await updateCompanyFields(companyId, { status: value as CompanyStatus });
+    } else {
+      throw new Error("That field can't be edited here.");
+    }
+    revalidatePath(`/companies/${companyId}`);
   }
 
   async function gotReply(formData: FormData) {
@@ -259,561 +317,559 @@ export default async function CompanyPage({
     redirect(`/companies/${companyId}`);
   }
 
+  const websiteHref = company.website
+    ? /^https?:\/\//.test(company.website)
+      ? company.website
+      : `https://${company.website}`
+    : null;
+  const openDeals = deals.filter(
+    (d) => d.stage !== "won" && d.stage !== "lost",
+  );
+  const awaitingByActivity = new Map(
+    tasks
+      .filter((t) => t.kind === "awaiting_reply" && !t.doneAt)
+      .map((t) => [t.activityId, t.id]),
+  );
+  const link = cn(
+    buttonVariants({ variant: "secondary", size: "sm" }),
+    "whitespace-nowrap",
+  );
+
   return (
-    <div className="flex flex-1 flex-col gap-6 p-6 md:p-8">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">{company.name}</h1>
-          <p className="text-sm text-zinc-500">
-            {BUSINESS_LABEL[company.business]} · {STATUS_LABEL[company.status]}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Link
-            href={`/companies/${company.id}/edit`}
-            className="rounded border border-zinc-300 px-4 py-2 text-sm font-medium dark:border-zinc-700"
-          >
-            Edit
-          </Link>
-          <ConfirmSubmit
-            action={archive}
-            trigger="Archive"
-            title={`Archive ${company.name}?`}
-            description="It leaves the lists and Home. Its contacts, deals, and history are kept."
-            confirmLabel="Archive company"
-          />
-        </div>
-      </div>
-
-      <dl className="grid max-w-md grid-cols-2 gap-4 text-sm">
-        <div>
-          <dt className="text-zinc-500">Website</dt>
-          <dd>{company.website ?? "—"}</dd>
-        </div>
-        <div>
-          <dt className="text-zinc-500">Source</dt>
-          <dd>{company.source ?? "—"}</dd>
-        </div>
-        <div>
-          <dt className="text-zinc-500">Added</dt>
-          <dd>{new Date(company.createdAt).toLocaleDateString()}</dd>
-        </div>
-      </dl>
-
-      <div className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Contacts</h2>
-          <Link
-            href={`/companies/${company.id}/contacts/new`}
-            className="rounded border border-zinc-300 px-3 py-1.5 text-sm font-medium dark:border-zinc-700"
-          >
-            Add contact
-          </Link>
-        </div>
-
-        {contacts.length === 0 ? (
-          <p className="text-sm text-zinc-500">
-            No contacts yet. Add the people you work with at this company.
-          </p>
-        ) : (
-          <div className="max-w-2xl overflow-x-auto">
-            <table className="w-full min-w-[480px] text-left text-sm">
-              <thead>
-                <tr className="border-b border-zinc-200 text-zinc-500 dark:border-zinc-800">
-                  <th className="py-2 font-medium">Name</th>
-                  <th className="py-2 font-medium">Title</th>
-                  <th className="py-2 font-medium">Email</th>
-                  <th className="py-2 font-medium">Phone</th>
-                  <th className="py-2 font-medium" />
-                </tr>
-              </thead>
-              <tbody>
-                {contacts.map((contact) => (
-                  <tr
-                    key={contact.id}
-                    className="border-b border-zinc-100 dark:border-zinc-900"
-                  >
-                    <td className="py-2 font-medium">{contact.name}</td>
-                    <td className="py-2 text-zinc-500">
-                      {contact.title ?? "—"}
-                    </td>
-                    <td className="py-2 text-zinc-500">
-                      {contact.email ?? "—"}
-                    </td>
-                    <td className="py-2 text-zinc-500">
-                      {contact.phone ?? "—"}
-                    </td>
-                    <td className="py-2">
-                      <div className="flex justify-end gap-3">
-                        <Link
-                          href={`/companies/${company.id}/contacts/${contact.id}/edit`}
-                          className="text-zinc-600 hover:underline dark:text-zinc-400"
-                        >
-                          Edit
-                        </Link>
-                        <form action={removeContact}>
-                          <input
-                            type="hidden"
-                            name="contactId"
-                            value={contact.id}
-                          />
-                          <button
-                            type="submit"
-                            className="text-red-600 hover:underline"
-                          >
-                            Remove
-                          </button>
-                        </form>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      <div className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Deals</h2>
-          <Link
-            href="/deals"
-            className="text-sm text-zinc-600 hover:underline dark:text-zinc-400"
-          >
-            View board →
-          </Link>
-        </div>
-
-        <form
-          action={addDeal}
-          className="flex max-w-2xl flex-wrap items-end gap-3"
-        >
-          <div className="flex min-w-48 flex-1 flex-col gap-1">
-            <label htmlFor="deal-title" className="text-sm font-medium">
-              Deal
-            </label>
-            <input
-              id="deal-title"
-              name="title"
-              type="text"
-              required
-              placeholder="Website redesign"
-              className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="amount" className="text-sm font-medium">
-              Amount
-            </label>
-            <input
-              id="amount"
-              name="amount"
-              type="number"
-              min="0"
-              step="0.01"
-              required
-              placeholder="5000"
-              className="w-28 rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="billing" className="text-sm font-medium">
-              Billing
-            </label>
-            <select
-              id="billing"
-              name="billing"
-              defaultValue={
-                company.business === "trazo" ? "monthly" : "one_time"
-              }
-              className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+    <div
+      data-business={company.business}
+      className="flex flex-1 flex-col gap-6 p-4 md:p-8"
+    >
+      <PageHeader
+        title={company.name}
+        description={
+          lastActivityAt
+            ? `Last activity ${formatDaysAgo(lastActivityAt)}`
+            : undefined
+        }
+        actions={
+          <>
+            <a href="#composer" className={link}>
+              <Plus className="size-4" aria-hidden="true" />
+              Log activity
+            </a>
+            <a href="#followups" className={link}>
+              Add follow-up
+            </a>
+            <Link
+              href={`/companies/${company.id}/contacts/new`}
+              className={link}
             >
-              {DEAL_BILLING.map((value) => (
-                <option key={value} value={value}>
-                  {DEAL_BILLING_LABEL[value]}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="closeDate" className="text-sm font-medium">
-              Expected close
-            </label>
-            <input
-              id="closeDate"
-              name="closeDate"
-              type="date"
-              className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+              Add contact
+            </Link>
+            <ConfirmSubmit
+              action={archive}
+              trigger="Archive"
+              title={`Archive ${company.name}?`}
+              description="It leaves the lists and Home. Its contacts, deals, and history are kept."
+              confirmLabel="Archive company"
             />
-          </div>
-          <button
-            type="submit"
-            className="rounded bg-zinc-900 px-4 py-2 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
+          </>
+        }
+      />
+      <div className="-mt-3 flex flex-wrap items-center gap-2">
+        <BusinessBadge business={company.business} />
+        <StatusBadge status={company.status} />
+        {websiteHref && (
+          <a
+            href={websiteHref}
+            target="_blank"
+            rel="noreferrer"
+            className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
           >
-            Add deal
-          </button>
-        </form>
-
-        {deals.length === 0 ? (
-          <p className="text-sm text-zinc-500">
-            No deals yet. Add one to start tracking the pipeline.
-          </p>
-        ) : (
-          <ul className="flex max-w-2xl flex-col gap-3">
-            {deals.map((deal) => (
-              <li
-                key={deal.id}
-                className="rounded border border-zinc-100 p-3 text-sm dark:border-zinc-900"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="font-medium">{deal.title}</p>
-                    <p className="text-zinc-500">
-                      {formatCents(deal.amountCents)} ·{" "}
-                      {DEAL_BILLING_LABEL[deal.billing]}
-                      {deal.closeDate &&
-                        ` · closes ${formatDueDate(deal.closeDate)}`}
-                    </p>
-                  </div>
-                  <form action={removeDeal}>
-                    <input type="hidden" name="dealId" value={deal.id} />
-                    <button
-                      type="submit"
-                      className="shrink-0 text-red-600 hover:underline"
-                    >
-                      Remove
-                    </button>
-                  </form>
-                </div>
-                <form
-                  action={moveDeal}
-                  className="mt-3 flex flex-wrap items-end gap-2"
-                >
-                  <input type="hidden" name="dealId" value={deal.id} />
-                  <select
-                    name="stage"
-                    defaultValue={deal.stage}
-                    className="rounded border border-zinc-300 px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-                  >
-                    {stages.map((stage) => (
-                      <option key={stage} value={stage}>
-                        {DEAL_STAGE_LABEL[stage]}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    name="lostReason"
-                    type="text"
-                    defaultValue={deal.lostReason ?? ""}
-                    placeholder="Reason if Lost"
-                    className="min-w-40 flex-1 rounded border border-zinc-300 px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-                  />
-                  <button
-                    type="submit"
-                    className="rounded border border-zinc-300 px-3 py-1.5 text-sm font-medium dark:border-zinc-700"
-                  >
-                    Update
-                  </button>
-                </form>
-              </li>
-            ))}
-          </ul>
+            {company.website}
+            <ExternalLink className="size-3.5" aria-hidden="true" />
+          </a>
+        )}
+        {openDeals.length > 0 && (
+          <Badge tone="info">
+            {openDeals.length} open {openDeals.length === 1 ? "deal" : "deals"}
+          </Badge>
         )}
       </div>
 
-      <div className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold">Follow-ups</h2>
-        <form
-          action={addTask}
-          className="flex max-w-2xl flex-wrap items-end gap-3"
-        >
-          <div className="flex min-w-48 flex-1 flex-col gap-1">
-            <label htmlFor="title" className="text-sm font-medium">
-              What&apos;s next
-            </label>
-            <input
-              id="title"
-              name="title"
-              type="text"
-              required
-              placeholder="Send proposal"
-              className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="dueDate" className="text-sm font-medium">
-              Due
-            </label>
-            <input
-              id="dueDate"
-              name="dueDate"
-              type="date"
-              className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-            />
-          </div>
-          <button
-            type="submit"
-            className="rounded bg-zinc-900 px-4 py-2 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
-          >
-            Add follow-up
-          </button>
-        </form>
-
-        {tasks.length === 0 ? (
-          <p className="text-sm text-zinc-500">
-            No follow-ups yet. Add one so nothing slips.
-          </p>
-        ) : (
-          <ul className="flex max-w-2xl flex-col gap-2">
-            {tasks.map((task) => (
-              <li
-                key={task.id}
-                className="flex items-center justify-between gap-4 border-b border-zinc-100 py-2 text-sm dark:border-zinc-900"
-              >
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
+        <div className="flex min-w-0 flex-col gap-4">
+          <Card>
+            <h2 className="mb-2 text-sm font-semibold">Details</h2>
+            <dl className="flex flex-col gap-1 text-sm">
+              {(
+                [
+                  ["Name", "name", company.name, undefined],
+                  ["Status", "status", company.status, COMPANY_STATUSES],
+                  ["Website", "website", company.website ?? "", undefined],
+                  ["Source", "source", company.source ?? "", undefined],
+                ] as const
+              ).map(([label, key, value, statuses]) => (
                 <div
-                  className={task.doneAt ? "text-zinc-400 line-through" : ""}
+                  key={key}
+                  className="grid grid-cols-[5rem_1fr] items-center gap-2"
                 >
-                  <span className="font-medium">{task.title}</span>
-                  {task.dueDate && (
-                    <span className="ml-2 text-zinc-500">
-                      {formatDueDate(task.dueDate)}
-                    </span>
-                  )}
-                  {task.ownerEmail && (
-                    <span className="ml-2 text-zinc-500">
-                      {ownerLabel(task.ownerEmail)}
-                    </span>
-                  )}
+                  <dt className="text-muted-foreground">{label}</dt>
+                  <dd>
+                    <InlineField
+                      action={updateField}
+                      field={key}
+                      label={label}
+                      value={value}
+                      placeholder={`Add ${label.toLowerCase()}`}
+                      options={statuses?.map((v) => ({
+                        value: v,
+                        label: STATUS_LABEL[v],
+                      }))}
+                      display={
+                        key === "status" ? (
+                          <StatusBadge status={company.status} />
+                        ) : undefined
+                      }
+                    />
+                  </dd>
                 </div>
-                <div className="flex shrink-0 gap-3">
-                  {task.kind === "awaiting_reply" && !task.doneAt && (
-                    <form action={gotReply}>
-                      <input type="hidden" name="taskId" value={task.id} />
+              ))}
+              <div className="grid grid-cols-[5rem_1fr] items-center gap-2 py-1">
+                <dt className="text-muted-foreground">Business</dt>
+                <dd>{BUSINESS_LABEL[company.business]}</dd>
+              </div>
+              <div className="grid grid-cols-[5rem_1fr] items-center gap-2 py-1">
+                <dt className="text-muted-foreground">Added</dt>
+                <dd className="num">
+                  {new Date(company.createdAt).toLocaleDateString()}
+                </dd>
+              </div>
+            </dl>
+          </Card>
+
+          <Card>
+            <div className="mb-2 flex items-center justify-between">
+              <h2 className="text-sm font-semibold">Contacts</h2>
+              <Link
+                href={`/companies/${company.id}/contacts/new`}
+                className="text-muted-foreground hover:text-foreground text-sm"
+              >
+                Add
+              </Link>
+            </div>
+            {contacts.length === 0 ? (
+              <p className="text-muted-foreground text-sm">
+                No contacts yet. Add the people you work with here.
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {contacts.map((contact) => (
+                  <li
+                    key={contact.id}
+                    className="flex items-center gap-3 text-sm"
+                  >
+                    <Avatar name={contact.name} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium">{contact.name}</p>
+                      <p className="text-muted-foreground truncate text-xs">
+                        {[contact.title, contact.email, contact.phone]
+                          .filter(Boolean)
+                          .join(" · ") || "No details"}
+                      </p>
+                    </div>
+                    <Link
+                      href={`/companies/${company.id}/contacts/${contact.id}/edit`}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      Edit
+                    </Link>
+                    <form action={removeContact}>
+                      <input
+                        type="hidden"
+                        name="contactId"
+                        value={contact.id}
+                      />
                       <button
                         type="submit"
-                        className="font-medium text-zinc-900 hover:underline dark:text-zinc-100"
+                        className="text-danger hover:underline"
                       >
-                        Got reply
+                        Remove
                       </button>
                     </form>
-                  )}
-                  <form action={toggleTask}>
-                    <input type="hidden" name="taskId" value={task.id} />
-                    <input
-                      type="hidden"
-                      name="done"
-                      value={task.doneAt ? "1" : "0"}
-                    />
-                    <button
-                      type="submit"
-                      className="text-zinc-600 hover:underline dark:text-zinc-400"
-                    >
-                      {task.doneAt ? "Reopen" : "Mark done"}
-                    </button>
-                  </form>
-                  <form action={removeTask}>
-                    <input type="hidden" name="taskId" value={task.id} />
-                    <button
-                      type="submit"
-                      className="text-red-600 hover:underline"
-                    >
-                      Remove
-                    </button>
-                  </form>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
 
-      <div className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold">Log</h2>
-        <form action={addActivity} className="flex max-w-2xl flex-col gap-2">
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-            <select
-              name="type"
-              aria-label="Type"
-              className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-            >
-              {ACTIVITY_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {ACTIVITY_TYPE_ICON[t]} {ACTIVITY_TYPE_LABEL[t]}
-                </option>
-              ))}
-            </select>
-            <select
-              name="contactId"
-              aria-label="Contact"
-              className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-            >
-              <option value="">No contact</option>
-              {contacts.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-            <input
-              type="datetime-local"
-              name="occurredAt"
-              aria-label="When (defaults to now)"
-              className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-            />
-          </div>
-          <div className="flex items-center gap-2 text-sm">
-            <label htmlFor="endsAt">If this is a meeting, it ends at</label>
-            <input
-              id="endsAt"
-              type="datetime-local"
-              name="endsAt"
-              className="rounded border border-zinc-300 px-3 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-            />
-            <span className="text-zinc-500">(optional)</span>
-          </div>
-          <input
-            name="subject"
-            placeholder="Subject (optional)"
-            aria-label="Subject"
-            className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-          />
-          <div className="flex items-center gap-2 text-sm">
-            <label htmlFor="remindInDays">
-              If this is a sent email, remind me in
-            </label>
-            <input
-              id="remindInDays"
-              name="remindInDays"
-              type="number"
-              min="0"
-              max="60"
-              defaultValue={3}
-              className="w-16 rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-            />
-            <span>days if no reply (0 for no reminder)</span>
-          </div>
-          <textarea
-            name="body"
-            rows={3}
-            placeholder="Log what happened…"
-            aria-label="Details"
-            className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-          />
-          <button
-            type="submit"
-            className="self-start rounded bg-zinc-900 px-4 py-2 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
-          >
-            Log activity
-          </button>
-        </form>
-
-        {activities.length === 0 ? (
-          <p className="text-sm text-zinc-500">
-            Nothing logged yet. Log an email, a call, a meeting, or a note
-            above.
-          </p>
-        ) : (
-          <ul className="flex max-w-2xl flex-col gap-3">
-            {activities.map((a) => (
-              <li
-                key={a.id}
-                className="rounded border border-zinc-100 p-3 text-sm dark:border-zinc-900"
+          <Card>
+            <div className="mb-2 flex items-center justify-between">
+              <h2 className="text-sm font-semibold">Deals</h2>
+              <Link
+                href="/deals"
+                className="text-muted-foreground hover:text-foreground text-sm"
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <p className="font-medium">
-                      <span aria-hidden>{ACTIVITY_TYPE_ICON[a.type]}</span>{" "}
-                      {ACTIVITY_TYPE_LABEL[a.type]}
-                      {a.subject ? `: ${a.subject}` : ""}
-                    </p>
-                    {a.body && (
-                      <p className="mt-1 whitespace-pre-wrap">{a.body}</p>
-                    )}
-                  </div>
-                  <form action={removeActivity}>
-                    <input type="hidden" name="activityId" value={a.id} />
-                    <button
-                      type="submit"
-                      className="shrink-0 text-red-600 hover:underline"
+                Open board
+              </Link>
+            </div>
+            {deals.length === 0 ? (
+              <p className="text-muted-foreground mb-3 text-sm">
+                No deals yet. Add one to start tracking the pipeline.
+              </p>
+            ) : (
+              <ul className="mb-3 flex flex-col gap-3">
+                {deals.map((deal) => (
+                  <li
+                    key={deal.id}
+                    className="border-border rounded-md border p-3 text-sm"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">{deal.title}</p>
+                        <p className="text-muted-foreground">
+                          <span className="num">
+                            {formatCents(deal.amountCents)}
+                          </span>{" "}
+                          · {DEAL_BILLING_LABEL[deal.billing]}
+                          {deal.closeDate &&
+                            ` · closes ${formatDueDate(deal.closeDate)}`}
+                        </p>
+                      </div>
+                      <form action={removeDeal}>
+                        <input type="hidden" name="dealId" value={deal.id} />
+                        <button
+                          type="submit"
+                          className="text-danger shrink-0 hover:underline"
+                        >
+                          Remove
+                        </button>
+                      </form>
+                    </div>
+                    <form
+                      action={moveDeal}
+                      className="mt-2 flex flex-wrap items-center gap-2"
                     >
-                      Delete
-                    </button>
-                  </form>
-                </div>
-                <p className="mt-2 text-xs text-zinc-500">
-                  {a.contactName ? `${a.contactName} · ` : ""}
-                  {a.type === "meeting"
-                    ? formatMeetingTime(a.occurredAt, a.endsAt)
-                    : new Date(
-                        `${a.occurredAt.replace(" ", "T")}Z`,
-                      ).toLocaleString()}
-                  {a.ownerEmail && ` · ${ownerLabel(a.ownerEmail)}`}
-                </p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      <div className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold">Activity</h2>
-        {timeline.length === 0 ? (
-          <p className="text-sm text-zinc-500">
-            Nothing yet. Logged activity, finished follow-ups, and deal changes
-            show up here.
-          </p>
-        ) : (
-          <ol className="flex max-w-2xl flex-col">
-            {timeline.map((item, index) => (
-              <li
-                key={index}
-                className="flex gap-4 border-b border-zinc-100 py-2 text-sm dark:border-zinc-900"
+                      <input type="hidden" name="dealId" value={deal.id} />
+                      <select
+                        name="stage"
+                        aria-label={`Stage for ${deal.title}`}
+                        defaultValue={deal.stage}
+                        className="border-border-strong bg-surface-raised h-8 rounded-md border px-2 text-sm"
+                      >
+                        {stages.map((stage) => (
+                          <option key={stage} value={stage}>
+                            {DEAL_STAGE_LABEL[stage]}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        name="lostReason"
+                        type="text"
+                        aria-label="Reason if lost"
+                        defaultValue={deal.lostReason ?? ""}
+                        placeholder="Reason if Lost"
+                        className="border-border-strong bg-surface-raised h-8 min-w-32 flex-1 rounded-md border px-2 text-sm"
+                      />
+                      <button
+                        type="submit"
+                        className={cn(
+                          buttonVariants({ variant: "secondary", size: "sm" }),
+                        )}
+                      >
+                        Update
+                      </button>
+                    </form>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <form
+              action={addDeal}
+              className="border-border grid grid-cols-2 gap-2 border-t pt-3 text-xs"
+            >
+              <label className="col-span-2 flex flex-col gap-1">
+                <span className="text-muted-foreground">Deal</span>
+                <input
+                  name="title"
+                  required
+                  placeholder="Website redesign"
+                  className="border-border-strong bg-surface-raised h-9 rounded-md border px-3 text-sm"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-muted-foreground">Amount</span>
+                <input
+                  name="amount"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  required
+                  placeholder="5000"
+                  className="border-border-strong bg-surface-raised h-9 rounded-md border px-3 text-sm"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-muted-foreground">Billing</span>
+                <select
+                  name="billing"
+                  defaultValue={
+                    company.business === "trazo" ? "monthly" : "one_time"
+                  }
+                  className="border-border-strong bg-surface-raised h-9 rounded-md border px-2 text-sm"
+                >
+                  {DEAL_BILLING.map((value) => (
+                    <option key={value} value={value}>
+                      {DEAL_BILLING_LABEL[value]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-muted-foreground">Expected close</span>
+                <input
+                  name="closeDate"
+                  type="date"
+                  className="border-border-strong bg-surface-raised h-9 rounded-md border px-2 text-sm"
+                />
+              </label>
+              <button
+                type="submit"
+                className={cn(
+                  buttonVariants({ variant: "secondary" }),
+                  "self-end",
+                )}
               >
-                <time className="w-24 shrink-0 text-zinc-500">
-                  {formatTimestamp(item.at)}
-                </time>
-                <p className="min-w-0 whitespace-pre-wrap">
-                  {item.kind === "activity" && (
-                    <>
-                      <span className="font-medium">
-                        {ACTIVITY_TYPE_ICON[item.type]}{" "}
-                        {ACTIVITY_TYPE_LABEL[item.type]}
-                        {item.subject ? `: ${item.subject}` : ""}
+                Add deal
+              </button>
+            </form>
+          </Card>
+
+          <Card id="followups" className="scroll-mt-20">
+            <h2 className="mb-2 text-sm font-semibold">Follow-ups</h2>
+            {tasks.length === 0 ? (
+              <p className="text-muted-foreground mb-3 text-sm">
+                No follow-ups yet. Add one so nothing slips.
+              </p>
+            ) : (
+              <ul className="mb-3 flex flex-col">
+                {tasks.map((task) => (
+                  <li
+                    key={task.id}
+                    className="border-border flex items-center justify-between gap-3 border-b py-2 text-sm last:border-b-0"
+                  >
+                    <div
+                      className={cn(
+                        "min-w-0",
+                        task.doneAt && "text-muted-foreground line-through",
+                      )}
+                    >
+                      <p className="truncate font-medium">{task.title}</p>
+                      <p className="text-muted-foreground text-xs">
+                        {task.dueDate && (
+                          <span className="num">
+                            {formatDueDate(task.dueDate)}
+                          </span>
+                        )}
+                        {task.ownerEmail && ` · ${ownerLabel(task.ownerEmail)}`}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 gap-3">
+                      {task.kind === "awaiting_reply" && !task.doneAt && (
+                        <form action={gotReply}>
+                          <input type="hidden" name="taskId" value={task.id} />
+                          <button
+                            type="submit"
+                            className="text-accent font-medium hover:underline"
+                          >
+                            Got reply
+                          </button>
+                        </form>
+                      )}
+                      <form action={toggleTask}>
+                        <input type="hidden" name="taskId" value={task.id} />
+                        <input
+                          type="hidden"
+                          name="done"
+                          value={task.doneAt ? "1" : "0"}
+                        />
+                        <button
+                          type="submit"
+                          className="text-muted-foreground hover:text-foreground"
+                        >
+                          {task.doneAt ? "Reopen" : "Done"}
+                        </button>
+                      </form>
+                      <form action={removeTask}>
+                        <input type="hidden" name="taskId" value={task.id} />
+                        <button
+                          type="submit"
+                          className="text-danger hover:underline"
+                        >
+                          Remove
+                        </button>
+                      </form>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <form
+              action={addTask}
+              className="border-border flex flex-wrap items-end gap-2 border-t pt-3 text-xs"
+            >
+              <label className="flex min-w-40 flex-1 flex-col gap-1">
+                <span className="text-muted-foreground">What&apos;s next</span>
+                <input
+                  name="title"
+                  required
+                  placeholder="Send proposal"
+                  className="border-border-strong bg-surface-raised h-9 rounded-md border px-3 text-sm"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-muted-foreground">Due</span>
+                <input
+                  name="dueDate"
+                  type="date"
+                  className="border-border-strong bg-surface-raised h-9 rounded-md border px-2 text-sm"
+                />
+              </label>
+              <button
+                type="submit"
+                className={cn(buttonVariants({ variant: "secondary" }))}
+              >
+                Add follow-up
+              </button>
+            </form>
+          </Card>
+        </div>
+
+        <div className="flex min-w-0 flex-col gap-4">
+          <div id="composer" className="scroll-mt-20">
+            <Composer
+              action={addActivity}
+              contacts={contacts.map((c) => ({ id: c.id, name: c.name }))}
+            />
+          </div>
+
+          <section aria-labelledby="timeline-heading">
+            <h2 id="timeline-heading" className="mb-3 text-sm font-semibold">
+              Timeline
+            </h2>
+            {timeline.length === 0 ? (
+              <p className="text-muted-foreground text-sm">
+                Nothing yet. Log a note, email, call, or meeting above and it
+                shows up here with finished follow-ups and deal changes.
+              </p>
+            ) : (
+              <ol className="border-border flex flex-col border-l">
+                {timeline.map((item, index) => {
+                  const Icon =
+                    item.kind === "activity"
+                      ? ACTIVITY_ICON[item.type]
+                      : item.kind === "task_done"
+                        ? CheckCircle2
+                        : item.kind === "deal_created"
+                          ? Handshake
+                          : ArrowRightLeft;
+                  return (
+                    <li key={index} className="relative pb-5 pl-6 text-sm">
+                      <span className="bg-surface-raised border-border text-muted-foreground absolute -left-3 flex size-6 items-center justify-center rounded-full border">
+                        <Icon className="size-3.5" aria-hidden="true" />
                       </span>
-                      {item.body ? ` ${item.body}` : ""}
-                    </>
-                  )}
-                  {item.kind === "task_done" && (
-                    <>
-                      <span className="font-medium">Completed follow-up:</span>{" "}
-                      {item.title}
-                    </>
-                  )}
-                  {item.kind === "deal_created" && (
-                    <>
-                      <span className="font-medium">New deal:</span>{" "}
-                      {item.title}
-                    </>
-                  )}
-                  {item.kind === "stage_change" && (
-                    <>
-                      <span className="font-medium">{item.dealTitle}:</span>{" "}
-                      {item.fromStage
-                        ? `${DEAL_STAGE_LABEL[item.fromStage]} → `
-                        : "moved to "}
-                      {DEAL_STAGE_LABEL[item.toStage]}
-                    </>
-                  )}
-                </p>
-              </li>
-            ))}
-          </ol>
-        )}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          {item.kind === "activity" && (
+                            <>
+                              <p className="font-medium">
+                                {ACTIVITY_TYPE_LABEL[item.type]}
+                                {item.subject ? `: ${item.subject}` : ""}
+                              </p>
+                              {item.body && (
+                                <p className="mt-0.5 whitespace-pre-wrap">
+                                  {item.body}
+                                </p>
+                              )}
+                            </>
+                          )}
+                          {item.kind === "task_done" && (
+                            <p>
+                              <span className="font-medium">
+                                Completed follow-up:
+                              </span>{" "}
+                              {item.title}
+                            </p>
+                          )}
+                          {item.kind === "deal_created" && (
+                            <p>
+                              <span className="font-medium">New deal:</span>{" "}
+                              {item.title}
+                            </p>
+                          )}
+                          {item.kind === "stage_change" && (
+                            <p>
+                              <span className="font-medium">
+                                {item.dealTitle}:
+                              </span>{" "}
+                              {item.fromStage
+                                ? `${DEAL_STAGE_LABEL[item.fromStage]} → `
+                                : "moved to "}
+                              {DEAL_STAGE_LABEL[item.toStage]}
+                            </p>
+                          )}
+                          <p className="text-muted-foreground num mt-0.5 text-xs">
+                            {item.kind === "activity" && item.type === "meeting"
+                              ? formatMeetingTime(item.at, item.endsAt)
+                              : formatTimestamp(item.at)}
+                            {item.kind === "activity" &&
+                              item.ownerEmail &&
+                              ` · ${ownerLabel(item.ownerEmail)}`}
+                          </p>
+                        </div>
+                        {item.kind === "activity" && (
+                          <form action={removeActivity}>
+                            <input
+                              type="hidden"
+                              name="activityId"
+                              value={item.id}
+                            />
+                            <button
+                              type="submit"
+                              className="text-muted-foreground hover:text-danger text-xs"
+                            >
+                              Delete
+                            </button>
+                          </form>
+                        )}
+                      </div>
+                      {item.kind === "activity" &&
+                        item.type === "email_sent" &&
+                        awaitingByActivity.has(item.id) && (
+                          <form action={gotReply} className="mt-1">
+                            <input
+                              type="hidden"
+                              name="taskId"
+                              value={awaitingByActivity.get(item.id)}
+                            />
+                            <button
+                              type="submit"
+                              className="text-accent text-xs font-medium hover:underline"
+                            >
+                              Got reply
+                            </button>
+                          </form>
+                        )}
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+          </section>
+        </div>
       </div>
 
-      <Link href="/companies" className="text-sm text-zinc-500 hover:underline">
-        ← Back to companies
+      <Link
+        href="/companies"
+        className="text-muted-foreground hover:text-foreground text-sm"
+      >
+        Back to companies
       </Link>
     </div>
   );
