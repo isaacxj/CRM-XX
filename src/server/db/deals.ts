@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull, notInArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, notInArray, sql } from "drizzle-orm";
 
 import { getDb } from "./index";
 import {
@@ -39,6 +39,49 @@ export async function listDealsForBoard(business: Business) {
     .innerJoin(companies, eq(deals.companyId, companies.id))
     .where(eq(companies.business, business))
     .orderBy(asc(deals.createdAt));
+}
+
+export type DealStageChange = {
+  id: number;
+  at: string;
+  fromStage: DealStage | null;
+  toStage: DealStage;
+};
+
+// One deal with its company and stage history (newest change first), for the
+// deal panel on the board.
+export async function getDealDetail(id: number) {
+  const db = getDb();
+  const [deal] = await db
+    .select({
+      id: deals.id,
+      title: deals.title,
+      stage: deals.stage,
+      amountCents: deals.amountCents,
+      billing: deals.billing,
+      closeDate: deals.closeDate,
+      lostReason: deals.lostReason,
+      createdAt: deals.createdAt,
+      companyId: deals.companyId,
+      companyName: companies.name,
+      business: companies.business,
+    })
+    .from(deals)
+    .innerJoin(companies, eq(deals.companyId, companies.id))
+    .where(eq(deals.id, id));
+  if (!deal) return null;
+
+  const history: DealStageChange[] = await db
+    .select({
+      id: dealEvents.id,
+      at: dealEvents.createdAt,
+      fromStage: dealEvents.fromStage,
+      toStage: dealEvents.toStage,
+    })
+    .from(dealEvents)
+    .where(eq(dealEvents.dealId, id))
+    .orderBy(desc(dealEvents.createdAt), desc(dealEvents.id));
+  return { ...deal, history };
 }
 
 export type DealInput = {
