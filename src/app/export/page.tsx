@@ -1,3 +1,6 @@
+import { PageHeader } from "@/components/kit/page-header";
+import { buttonVariants } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { BUSINESSES, type Business } from "@/server/db/schema";
 
 const BUSINESS_LABEL: Record<Business, string> = {
@@ -36,48 +39,54 @@ export default async function ExportPage({
     : undefined;
   const query = business ? `?business=${business}` : "";
 
-  return (
-    <div className="mx-auto max-w-2xl p-4">
-      <h1 className="text-xl font-semibold">Export</h1>
-      <p className="mt-1 text-sm text-zinc-600">
-        Download your data as CSV. Archived companies are left out.
-      </p>
+  const pill = (active: boolean) =>
+    `inline-flex min-h-9 items-center rounded-md px-3 text-sm transition-colors ${
+      active
+        ? "bg-surface-hover text-foreground font-medium"
+        : "text-muted-foreground hover:bg-surface-hover hover:text-foreground"
+    }`;
 
-      <div className="mt-4 flex gap-2 text-sm">
+  return (
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6 pb-24 md:p-8 md:pb-8">
+      <PageHeader
+        title="Export"
+        description="Download your data as CSV. Archived companies are left out."
+      />
+
+      <div className="flex gap-1" role="group" aria-label="Business filter">
         {[undefined, ...BUSINESSES].map((value) => (
           <a
             key={value ?? "all"}
             href={value ? `/export?business=${value}` : "/export"}
-            className={`rounded-md border px-3 py-1.5 ${
-              value === business
-                ? "border-zinc-900 bg-zinc-900 text-white"
-                : "border-zinc-300 hover:bg-zinc-100"
-            }`}
+            aria-current={value === business ? "true" : undefined}
+            className={pill(value === business)}
           >
             {value ? BUSINESS_LABEL[value] : "All"}
           </a>
         ))}
       </div>
 
-      <ul className="mt-6 divide-y rounded-md border">
+      <Card className="divide-border divide-y p-0">
         {DATASETS.map((dataset) => (
-          <li
+          <div
             key={dataset.key}
-            className="flex items-center justify-between gap-4 p-3"
+            className="flex flex-wrap items-center justify-between gap-3 p-3"
           >
-            <div>
+            <div className="min-w-0 flex-1 basis-56">
               <div className="font-medium">{dataset.label}</div>
-              <div className="text-sm text-zinc-600">{dataset.note}</div>
+              <div className="text-muted-foreground text-sm">
+                {dataset.note}
+              </div>
             </div>
             <a
               href={`/export/${dataset.key}${query}`}
-              className="shrink-0 rounded-md border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100"
+              className={buttonVariants({ variant: "secondary", size: "sm" })}
             >
               Download CSV
             </a>
-          </li>
+          </div>
         ))}
-      </ul>
+      </Card>
     </div>
   );
 }

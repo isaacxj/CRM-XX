@@ -1,5 +1,16 @@
 import Link from "next/link";
 
+import { Avatar } from "@/components/kit/avatar";
+import { EmptyState } from "@/components/kit/data-table";
+import { PageHeader } from "@/components/kit/page-header";
+import {
+  BusinessBadge,
+  StageBadge,
+  StatusBadge,
+} from "@/components/kit/status-badges";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { searchAll } from "@/server/db/search";
 import { BUSINESSES, type Business } from "@/server/db/schema";
 
@@ -18,12 +29,6 @@ const STAGE_LABEL: Record<string, string> = {
   proposal: "Proposal",
   won: "Won",
   lost: "Lost",
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  prospect: "Prospect",
-  client: "Client",
-  past: "Past client",
 };
 
 function formatCents(cents: number) {
@@ -46,13 +51,42 @@ function Section({
   if (count === 0) return null;
   return (
     <section className="flex flex-col gap-2">
-      <h2 className="text-sm font-medium text-zinc-500">
-        {title} ({count})
+      <h2 className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
+        {title}
+        <span className="num text-xs">{count}</span>
       </h2>
-      <ul className="divide-y divide-zinc-100 dark:divide-zinc-900">
-        {children}
-      </ul>
+      <Card className="divide-border divide-y p-0">{children}</Card>
     </section>
+  );
+}
+
+function ResultRow({
+  href,
+  name,
+  detail,
+  badges,
+}: {
+  href: string;
+  name: string;
+  detail?: string;
+  badges: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className="hover:bg-surface-hover flex flex-wrap items-center gap-3 p-3 text-sm first:rounded-t-lg last:rounded-b-lg"
+    >
+      <Avatar name={name} />
+      <span className="min-w-0 flex-1 basis-48">
+        <span className="block truncate font-medium">{name}</span>
+        {detail && (
+          <span className="text-muted-foreground block truncate text-xs">
+            {detail}
+          </span>
+        )}
+      </span>
+      <span className="flex items-center gap-2">{badges}</span>
+    </Link>
   );
 }
 
@@ -74,33 +108,35 @@ export default async function SearchPage({
     results.companies.length + results.contacts.length + results.deals.length;
 
   return (
-    <div className="flex flex-1 flex-col gap-6 p-6 md:p-8">
-      <h1 className="text-2xl font-semibold">Search</h1>
+    <div className="flex flex-1 flex-col gap-6 p-6 pb-24 md:p-8 md:pb-8">
+      <PageHeader
+        title="Search"
+        description="Find companies, contacts, and deals in one place."
+      />
 
       <form className="flex flex-wrap items-end gap-3" method="get">
         <div className="flex flex-1 flex-col gap-1 sm:max-w-md">
-          <label htmlFor="q" className="text-xs text-zinc-500">
+          <label htmlFor="q" className="text-muted-foreground text-xs">
             Companies, contacts, and deals
           </label>
-          <input
+          <Input
             id="q"
             name="q"
             type="search"
             defaultValue={q}
             autoFocus
             placeholder="Name, email, or deal title"
-            className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label htmlFor="business" className="text-xs text-zinc-500">
+          <label htmlFor="business" className="text-muted-foreground text-xs">
             Business
           </label>
           <select
             id="business"
             name="business"
             defaultValue={business ?? ""}
-            className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            className="border-border-strong bg-surface-raised h-9 rounded-md border px-3 text-sm"
           >
             <option value="">All</option>
             {BUSINESSES.map((value) => (
@@ -110,77 +146,67 @@ export default async function SearchPage({
             ))}
           </select>
         </div>
-        <button
-          type="submit"
-          className="rounded border border-zinc-300 px-4 py-2 text-sm font-medium dark:border-zinc-700"
-        >
+        <Button type="submit" variant="secondary">
           Search
-        </button>
+        </Button>
       </form>
 
       {!q ? (
-        <p className="text-sm text-zinc-500">
-          Type part of a company name, a contact&apos;s name or email, or a deal
-          title to find it.
-        </p>
+        <EmptyState title="Type part of a company name, a contact's name or email, or a deal title to find it." />
       ) : total === 0 ? (
-        <p className="text-sm text-zinc-500">
-          Nothing matches &ldquo;{q}&rdquo;. Try fewer letters, or switch the
-          business filter to All.
-        </p>
+        <EmptyState
+          title={`Nothing matches "${q}". Try fewer letters, or switch the business filter to All.`}
+        />
       ) : (
         <div className="flex flex-col gap-6">
           <Section title="Companies" count={results.companies.length}>
             {results.companies.map((company) => (
-              <li key={company.id} className="py-2 text-sm">
-                <Link
-                  href={`/companies/${company.id}`}
-                  className="font-medium hover:underline"
-                >
-                  {company.name}
-                </Link>
-                <span className="ml-2 text-zinc-500">
-                  {BUSINESS_LABEL[company.business]} ·{" "}
-                  {STATUS_LABEL[company.status] ?? company.status}
-                  {company.website ? ` · ${company.website}` : ""}
-                </span>
-              </li>
+              <ResultRow
+                key={company.id}
+                href={`/companies/${company.id}`}
+                name={company.name}
+                detail={company.website ?? undefined}
+                badges={
+                  <>
+                    <BusinessBadge business={company.business} />
+                    <StatusBadge status={company.status} />
+                  </>
+                }
+              />
             ))}
           </Section>
 
           <Section title="Contacts" count={results.contacts.length}>
             {results.contacts.map((contact) => (
-              <li key={contact.id} className="py-2 text-sm">
-                <Link
-                  href={`/companies/${contact.companyId}`}
-                  className="font-medium hover:underline"
-                >
-                  {contact.name}
-                </Link>
-                <span className="ml-2 text-zinc-500">
-                  {[contact.title, contact.email].filter(Boolean).join(" · ")}
-                  {contact.title || contact.email ? " · " : ""}
-                  {contact.companyName} · {BUSINESS_LABEL[contact.business]}
-                </span>
-              </li>
+              <ResultRow
+                key={contact.id}
+                href={`/companies/${contact.companyId}`}
+                name={contact.name}
+                detail={[contact.title, contact.email, contact.companyName]
+                  .filter(Boolean)
+                  .join(" · ")}
+                badges={<BusinessBadge business={contact.business} />}
+              />
             ))}
           </Section>
 
           <Section title="Deals" count={results.deals.length}>
             {results.deals.map((deal) => (
-              <li key={deal.id} className="py-2 text-sm">
-                <Link
-                  href={`/companies/${deal.companyId}`}
-                  className="font-medium hover:underline"
-                >
-                  {deal.title}
-                </Link>
-                <span className="ml-2 text-zinc-500">
-                  {STAGE_LABEL[deal.stage] ?? deal.stage} ·{" "}
-                  {formatCents(deal.amountCents)} · {deal.companyName} ·{" "}
-                  {BUSINESS_LABEL[deal.business]}
-                </span>
-              </li>
+              <ResultRow
+                key={deal.id}
+                href={`/companies/${deal.companyId}`}
+                name={deal.title}
+                detail={deal.companyName}
+                badges={
+                  <>
+                    <span className="num text-sm">
+                      {formatCents(deal.amountCents)}
+                    </span>
+                    <StageBadge stage={STAGE_LABEL[deal.stage] ?? deal.stage} />
+                    <BusinessBadge business={deal.business} />
+                  </>
+                }
+              />
             ))}
           </Section>
         </div>
