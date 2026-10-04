@@ -50,6 +50,13 @@ function businessTarget(pathname: string, business: string) {
   return business === "all" ? "/companies" : `/companies?business=${business}`;
 }
 
+// Current page with one query param set, so a sheet opens over what you are on.
+function withParam(key: string, value: string) {
+  const url = new URL(window.location.href);
+  url.searchParams.set(key, value);
+  return `${url.pathname}${url.search}`;
+}
+
 const COMMANDS: Command[] = [
   ...NAV_GROUPS.flatMap((group) =>
     group.items.map<Command>((item) => ({
@@ -65,7 +72,7 @@ const COMMANDS: Command[] = [
     group: "Actions",
     label: "Add company",
     Icon: Building2,
-    run: (router) => router.push("/companies/new"),
+    run: (router) => router.push("/companies?new=1"),
   },
   {
     id: "log-activity",
@@ -73,14 +80,14 @@ const COMMANDS: Command[] = [
     label: "Log activity",
     hint: "Email, call, meeting, or note",
     Icon: Plus,
-    run: (router) => router.push("/quick-add"),
+    run: (router) => router.push(withParam("quick", "activity")),
   },
   {
     id: "add-follow-up",
     group: "Actions",
     label: "Add follow-up",
     Icon: UserPlus,
-    run: (router) => router.push("/quick-add"),
+    run: (router) => router.push(withParam("quick", "followup")),
   },
   {
     id: "import",

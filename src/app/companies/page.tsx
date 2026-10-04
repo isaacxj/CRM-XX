@@ -4,7 +4,9 @@ import { DataTable, EmptyState, Td, Th, Tr } from "@/components/kit/data-table";
 import { Avatar } from "@/components/kit/avatar";
 import { PageHeader } from "@/components/kit/page-header";
 import { BusinessBadge, StatusBadge } from "@/components/kit/status-badges";
+import { CompanySheet } from "@/components/forms/company-sheet";
 import { ToastOnMount } from "@/components/kit/toast";
+import { createCompanyAction } from "@/app/form-actions";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatDaysAgo } from "@/lib/activity";
@@ -55,6 +57,14 @@ export default async function CompaniesPage({
   const business = isBusiness(businessParam) ? businessParam : undefined;
   const status = isStatus(statusParam) ? statusParam : undefined;
   const focusSearch = params.focus === "1";
+  const sheetOpen = params.new === "1";
+  const closeParams = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (k !== "new" && typeof v === "string") closeParams.set(k, v);
+  }
+  const closeHref = closeParams.size
+    ? `/companies?${closeParams}`
+    : "/companies";
   const sort = params.sort === "last_activity" ? "last_activity" : "name";
   const dir = params.dir === "desc" ? "desc" : "asc";
 
@@ -93,6 +103,13 @@ export default async function CompaniesPage({
   return (
     <div className="flex flex-1 flex-col gap-6 p-4 md:p-8">
       {importMessage && <ToastOnMount message={importMessage} />}
+      {sheetOpen && (
+        <CompanySheet
+          action={createCompanyAction}
+          closeHref={closeHref}
+          defaultBusiness={business ?? "statixx"}
+        />
+      )}
       <PageHeader
         title="Companies"
         description={`${companies.length} ${companies.length === 1 ? "company" : "companies"}`}
@@ -104,7 +121,7 @@ export default async function CompaniesPage({
             >
               Import CSV
             </Link>
-            <Link href="/companies/new" className={buttonVariants()}>
+            <Link href="/companies?new=1" className={buttonVariants()}>
               Add company
             </Link>
           </>
@@ -177,7 +194,7 @@ export default async function CompaniesPage({
         <EmptyState
           title="No companies match these filters yet. Add one or import a CSV to get started."
           action={
-            <Link href="/companies/new" className={buttonVariants()}>
+            <Link href="/companies?new=1" className={buttonVariants()}>
               Add company
             </Link>
           }

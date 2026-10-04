@@ -226,7 +226,7 @@ export default async function Today({
             {followUps.length === 0 ? (
               <Card className="text-muted-foreground text-sm">
                 Nothing due. Add a follow-up from a company page or{" "}
-                <Link href="/quick-add" className="text-accent underline">
+                <Link href="/?quick=activity" className="text-accent underline">
                   Quick add
                 </Link>
                 .

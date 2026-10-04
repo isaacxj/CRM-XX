@@ -23,6 +23,7 @@ import {
   type ReactNode,
 } from "react";
 
+import { QuickAddSheet } from "@/components/forms/quick-add-sheet";
 import { CommandPalette, openPalette } from "@/components/command-palette";
 import { NAV_GROUPS, type NavItem } from "@/components/nav";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -290,7 +291,7 @@ function Sidebar({ pathname }: { pathname: string }) {
       )}
     >
       <Link
-        href="/quick-add"
+        href="/?quick=activity"
         title={collapsed ? "Quick add" : undefined}
         aria-label={collapsed ? "Quick add" : undefined}
         className="bg-accent text-accent-foreground flex h-8 items-center justify-center gap-2 rounded-md px-2 text-sm font-medium"
@@ -490,7 +491,7 @@ function MenuSheet({
         </div>
         <div className="flex flex-col gap-4">
           <Link
-            href="/quick-add"
+            href="/?quick=activity"
             onClick={onClose}
             className="bg-accent text-accent-foreground flex h-11 items-center justify-center gap-2 rounded-md text-sm font-medium"
           >
@@ -566,6 +567,7 @@ export function Shell({
         <main className="flex flex-1 flex-col pb-16 md:pb-0">{children}</main>
       </div>
       <CommandPalette />
+      <QuickAddSheet />
       <PhoneNav pathname={pathname} onMenu={() => setMenuPath(pathname)} />
       {menuOpen && (
         <MenuSheet

@@ -17,6 +17,9 @@ import {
 import { Composer } from "@/components/company/composer";
 import { InlineField } from "@/components/company/inline-field";
 import { Avatar } from "@/components/kit/avatar";
+import { saveContactAction } from "@/app/form-actions";
+import { ContactSheet } from "@/components/forms/contact-sheet";
+import { ToastOnMount } from "@/components/kit/toast";
 import { ConfirmSubmit } from "@/components/kit/confirm-dialog";
 import { PageHeader } from "@/components/kit/page-header";
 import { BusinessBadge, StatusBadge } from "@/components/kit/status-badges";
@@ -128,12 +131,22 @@ const DEAL_BILLING_LABEL: Record<DealBilling, string> = {
   monthly: "Monthly",
 };
 
+const SAVED_MESSAGE: Record<string, string> = {
+  company: "Company added.",
+  contact: "Contact saved.",
+  activity: "Activity logged.",
+  followup: "Follow-up added.",
+};
+
 export default async function CompanyPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { id } = await params;
+  const query = await searchParams;
   const companyId = Number(id);
   const company = Number.isInteger(companyId)
     ? await getCompany(companyId)
@@ -335,11 +348,35 @@ export default async function CompanyPage({
     "whitespace-nowrap",
   );
 
+  const contactParam = typeof query.contact === "string" ? query.contact : "";
+  const editingContact =
+    contactParam && contactParam !== "new"
+      ? contacts.find((c) => c.id === Number(contactParam))
+      : undefined;
+  const contactSheetOpen =
+    contactParam === "new" || editingContact !== undefined;
+  const savedMessage =
+    typeof query.saved === "string" ? SAVED_MESSAGE[query.saved] : undefined;
+
   return (
     <div
       data-business={company.business}
       className="flex flex-1 flex-col gap-6 p-4 md:p-8"
     >
+      {savedMessage && <ToastOnMount message={savedMessage} />}
+      {contactSheetOpen && (
+        <ContactSheet
+          key={editingContact?.id ?? "new"}
+          action={saveContactAction.bind(
+            null,
+            companyId,
+            editingContact?.id ?? null,
+          )}
+          closeHref={`/companies/${companyId}`}
+          companyName={company.name}
+          defaultValues={editingContact}
+        />
+      )}
       <PageHeader
         title={company.name}
         description={
@@ -357,7 +394,7 @@ export default async function CompanyPage({
               Add follow-up
             </a>
             <Link
-              href={`/companies/${company.id}/contacts/new`}
+              href={`/companies/${company.id}?contact=new`}
               className={link}
             >
               Add contact
@@ -448,7 +485,7 @@ export default async function CompanyPage({
             <div className="mb-2 flex items-center justify-between">
               <h2 className="text-sm font-semibold">Contacts</h2>
               <Link
-                href={`/companies/${company.id}/contacts/new`}
+                href={`/companies/${company.id}?contact=new`}
                 className="text-muted-foreground hover:text-foreground text-sm"
               >
                 Add
@@ -475,7 +512,7 @@ export default async function CompanyPage({
                       </p>
                     </div>
                     <Link
-                      href={`/companies/${company.id}/contacts/${contact.id}/edit`}
+                      href={`/companies/${company.id}?contact=${contact.id}`}
                       className="text-muted-foreground hover:text-foreground"
                     >
                       Edit
