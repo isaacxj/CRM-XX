@@ -1,5 +1,6 @@
 "use client";
 
+import { tabListKeyDown } from "@/components/kit/tabs";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -82,6 +83,7 @@ export function DealBoard({
       <div
         role="tablist"
         aria-label="Stage"
+        onKeyDown={tabListKeyDown}
         className="-mx-6 flex gap-1 overflow-x-auto px-6 pb-1 md:hidden"
       >
         {stages.map((stage) => {
@@ -93,6 +95,7 @@ export function DealBoard({
               type="button"
               role="tab"
               aria-selected={active}
+              tabIndex={active ? 0 : -1}
               onClick={() => setActiveStage(stage.value)}
               className={cn(
                 "inline-flex h-(--tap-target) shrink-0 items-center gap-1.5 rounded-md px-3 text-sm",

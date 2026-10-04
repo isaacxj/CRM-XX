@@ -1,5 +1,6 @@
 "use client";
 
+import { tabListKeyDown } from "@/components/kit/tabs";
 import { useState } from "react";
 import { Mail, MessageSquare, Phone, StickyNote, Users } from "lucide-react";
 
@@ -66,6 +67,7 @@ export function Composer({
       <div
         role="tablist"
         aria-label="Activity type"
+        onKeyDown={tabListKeyDown}
         className="flex flex-wrap gap-1"
       >
         {TABS.map(({ kind: k, label, icon: Icon }) => (
@@ -74,6 +76,7 @@ export function Composer({
             type="button"
             role="tab"
             aria-selected={kind === k}
+            tabIndex={kind === k ? 0 : -1}
             onClick={() => setKind(k)}
             className={cn(
               "inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm max-md:h-(--tap-target)",

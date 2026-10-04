@@ -561,10 +561,22 @@ export function Shell({
 
   return (
     <div data-business={activeBusiness} className="flex flex-1">
+      <a
+        href="#main"
+        className="bg-accent text-accent-foreground sr-only z-50 rounded-md px-3 py-2 text-sm font-medium focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
+      >
+        Skip to content
+      </a>
       <Sidebar pathname={pathname} />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar pathname={pathname} switcher={switcher} email={userEmail} />
-        <main className="flex flex-1 flex-col pb-16 md:pb-0">{children}</main>
+        <main
+          id="main"
+          tabIndex={-1}
+          className="flex flex-1 flex-col pb-16 outline-none md:pb-0"
+        >
+          {children}
+        </main>
       </div>
       <CommandPalette />
       <QuickAddSheet />

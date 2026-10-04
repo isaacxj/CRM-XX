@@ -1,5 +1,6 @@
 "use client";
 
+import { tabListKeyDown } from "@/components/kit/tabs";
 import { useEffect, useState } from "react";
 
 import { cn } from "@/lib/cn";
@@ -39,6 +40,7 @@ export function CompanyColumns({
       <div
         role="tablist"
         aria-label="Company sections"
+        onKeyDown={tabListKeyDown}
         className="border-border grid grid-cols-2 border-b lg:hidden"
       >
         {TABS.map(({ value, label }) => (
@@ -48,6 +50,7 @@ export function CompanyColumns({
             role="tab"
             id={`company-tab-${value}`}
             aria-selected={tab === value}
+            tabIndex={tab === value ? 0 : -1}
             aria-controls={`company-panel-${value}`}
             onClick={() => setTab(value)}
             className={cn(

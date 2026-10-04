@@ -528,7 +528,7 @@ export default async function CompanyPage({
                         />
                         <button
                           type="submit"
-                          className="text-danger hover:underline"
+                          className="text-danger inline-flex items-center hover:underline max-md:min-h-(--tap-target) max-md:px-2"
                         >
                           Remove
                         </button>
@@ -576,7 +576,7 @@ export default async function CompanyPage({
                           <input type="hidden" name="dealId" value={deal.id} />
                           <button
                             type="submit"
-                            className="text-danger shrink-0 hover:underline"
+                            className="text-danger inline-flex shrink-0 items-center hover:underline max-md:min-h-(--tap-target) max-md:px-2"
                           >
                             Remove
                           </button>
@@ -724,7 +724,7 @@ export default async function CompanyPage({
                             />
                             <button
                               type="submit"
-                              className="text-accent font-medium hover:underline"
+                              className="text-accent inline-flex items-center font-medium hover:underline max-md:min-h-(--tap-target) max-md:px-2"
                             >
                               Got reply
                             </button>
@@ -748,7 +748,7 @@ export default async function CompanyPage({
                           <input type="hidden" name="taskId" value={task.id} />
                           <button
                             type="submit"
-                            className="text-danger hover:underline"
+                            className="text-danger inline-flex items-center hover:underline max-md:min-h-(--tap-target) max-md:px-2"
                           >
                             Remove
                           </button>
@@ -903,7 +903,7 @@ export default async function CompanyPage({
                               />
                               <button
                                 type="submit"
-                                className="text-accent text-xs font-medium hover:underline"
+                                className="text-accent inline-flex items-center text-xs font-medium hover:underline max-md:min-h-(--tap-target) max-md:px-2"
                               >
                                 Got reply
                               </button>

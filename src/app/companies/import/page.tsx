@@ -2,6 +2,9 @@
 
 import { useState, useTransition } from "react";
 
+import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/field";
+import { PageHeader } from "@/components/kit/page-header";
 import { parseCsv } from "@/lib/csv";
 import {
   IMPORT_FIELDS,
@@ -94,29 +97,26 @@ export default function ImportCompaniesPage() {
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-8">
-      <h1 className="text-2xl font-semibold">Import companies</h1>
-      <p className="max-w-2xl text-sm text-zinc-500">
-        Upload a CSV export from a spreadsheet, match its columns to fields
-        below, then preview and import. Companies that already exist for the
-        selected business (matched by name) are skipped.
-      </p>
+      <PageHeader
+        title="Import companies"
+        description="Upload a CSV export from a spreadsheet, match its columns to fields below, then preview and import. Companies that already exist for the selected business (matched by name) are skipped."
+      />
 
       <div className="flex max-w-xs flex-col gap-1">
         <label htmlFor="business" className="text-sm font-medium">
           Business
         </label>
-        <select
+        <Select
           id="business"
           value={business}
           onChange={(e) => setBusiness(e.target.value as Business)}
-          className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
         >
           {BUSINESSES.map((value) => (
             <option key={value} value={value}>
               {BUSINESS_LABEL[value]}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
 
       <div className="flex max-w-xs flex-col gap-1">
@@ -131,12 +131,14 @@ export default function ImportCompaniesPage() {
             const file = e.target.files?.[0];
             if (file) void handleFile(file);
           }}
-          className="text-sm"
+          className="file:border-border-strong file:bg-surface-raised file:hover:bg-surface-hover text-sm file:mr-3 file:min-h-8 file:rounded-md file:border file:px-3 file:text-sm max-md:file:min-h-(--tap-target)"
         />
       </div>
 
       {error && (
-        <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+        <p role="alert" className="text-danger text-sm">
+          {error}
+        </p>
       )}
 
       {headers.length > 0 && (
@@ -148,8 +150,14 @@ export default function ImportCompaniesPage() {
             <div className="flex flex-wrap gap-4">
               {headers.map((header, index) => (
                 <div key={index} className="flex flex-col gap-1">
-                  <label className="text-xs text-zinc-500">{header}</label>
-                  <select
+                  <label
+                    htmlFor={`column-${index}`}
+                    className="text-muted-foreground text-xs"
+                  >
+                    {header || `Column ${index + 1}`}
+                  </label>
+                  <Select
+                    id={`column-${index}`}
                     value={columnFields[index] ?? ""}
                     onChange={(e) => {
                       const value = e.target.value as ImportField | "";
@@ -159,7 +167,6 @@ export default function ImportCompaniesPage() {
                         return next;
                       });
                     }}
-                    className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
                   >
                     <option value="">Don&apos;t import</option>
                     {IMPORT_FIELDS.map((field) => (
@@ -167,12 +174,12 @@ export default function ImportCompaniesPage() {
                         {FIELD_LABELS[field]}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
               ))}
             </div>
             {!hasCompanyName && (
-              <p className="text-sm text-red-600 dark:text-red-400">
+              <p role="alert" className="text-danger text-sm">
                 Match at least one column to Company name before importing.
               </p>
             )}
@@ -182,51 +189,50 @@ export default function ImportCompaniesPage() {
             <h2 className="text-lg font-medium">
               Preview ({rows.length} row{rows.length === 1 ? "" : "s"})
             </h2>
-            <table className="w-full max-w-3xl text-left text-sm">
-              <thead>
-                <tr className="border-b border-zinc-200 text-zinc-500 dark:border-zinc-800">
-                  {IMPORT_FIELDS.map((field) => (
-                    <th key={field} className="py-2 pr-4 font-medium">
-                      {FIELD_LABELS[field]}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.slice(0, 5).map((row, rowIndex) => (
-                  <tr
-                    key={rowIndex}
-                    className="border-b border-zinc-100 dark:border-zinc-900"
-                  >
-                    {IMPORT_FIELDS.map((field) => {
-                      const columnIndex = columnFields.indexOf(field);
-                      const value =
-                        columnIndex === -1 ? "" : (row[columnIndex] ?? "");
-                      return (
-                        <td
-                          key={field}
-                          className="py-2 pr-4 text-zinc-600 dark:text-zinc-400"
-                        >
-                          {value || "—"}
-                        </td>
-                      );
-                    })}
+            <div className="max-w-3xl overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-border text-muted-foreground border-b">
+                    {IMPORT_FIELDS.map((field) => (
+                      <th key={field} className="py-2 pr-4 font-medium">
+                        {FIELD_LABELS[field]}
+                      </th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {rows.slice(0, 5).map((row, rowIndex) => (
+                    <tr key={rowIndex} className="border-border border-b">
+                      {IMPORT_FIELDS.map((field) => {
+                        const columnIndex = columnFields.indexOf(field);
+                        const value =
+                          columnIndex === -1 ? "" : (row[columnIndex] ?? "");
+                        return (
+                          <td
+                            key={field}
+                            className="text-muted-foreground py-2 pr-4"
+                          >
+                            {value || "—"}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
-          <button
+          <Button
             type="button"
             disabled={!hasCompanyName || isPending}
             onClick={handleImport}
-            className="self-start rounded bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+            className="self-start"
           >
             {isPending
               ? "Importing…"
               : `Import ${rows.length} row${rows.length === 1 ? "" : "s"}`}
-          </button>
+          </Button>
         </>
       )}
     </div>
