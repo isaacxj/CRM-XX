@@ -5,12 +5,17 @@ import { Avatar } from "@/components/kit/avatar";
 import { PageHeader } from "@/components/kit/page-header";
 import { BusinessBadge, StatusBadge } from "@/components/kit/status-badges";
 import { CompanySheet } from "@/components/forms/company-sheet";
-import { ToastOnMount } from "@/components/kit/toast";
+import { ToastOnMount, UndoToastOnMount } from "@/components/kit/toast";
 import { createCompanyAction } from "@/app/form-actions";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatDaysAgo } from "@/lib/activity";
-import { listCompanies } from "@/server/db/companies";
+import { revalidatePath } from "next/cache";
+import {
+  getCompany,
+  listCompanies,
+  restoreCompany,
+} from "@/server/db/companies";
 import {
   BUSINESSES,
   COMPANY_STATUSES,
@@ -53,6 +58,19 @@ export default async function CompaniesPage({
     typeof params.skipped === "string" ? Number(params.skipped) : null;
   const contactsParam =
     typeof params.contacts === "string" ? Number(params.contacts) : null;
+
+  const archivedId =
+    typeof params.archived === "string" ? Number(params.archived) : NaN;
+  const archived = Number.isInteger(archivedId)
+    ? await getCompany(archivedId)
+    : null;
+  const justArchived = archived?.archivedAt ? archived : null;
+
+  async function undoArchive() {
+    "use server";
+    await restoreCompany(archivedId);
+    revalidatePath("/companies");
+  }
 
   const business = isBusiness(businessParam) ? businessParam : undefined;
   const status = isStatus(statusParam) ? statusParam : undefined;
@@ -103,6 +121,13 @@ export default async function CompaniesPage({
   return (
     <div className="flex flex-1 flex-col gap-6 p-4 md:p-8">
       {importMessage && <ToastOnMount message={importMessage} />}
+      {justArchived && (
+        <UndoToastOnMount
+          message={`Archived ${justArchived.name}`}
+          undo={undoArchive}
+          undoneMessage={`Restored ${justArchived.name}`}
+        />
+      )}
       {sheetOpen && (
         <CompanySheet
           action={createCompanyAction}

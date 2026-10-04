@@ -166,7 +166,7 @@ export default async function CompanyPage({
   async function archive() {
     "use server";
     await archiveCompany(companyId);
-    redirect("/companies");
+    redirect(`/companies?archived=${companyId}`);
   }
 
   async function removeContact(formData: FormData) {

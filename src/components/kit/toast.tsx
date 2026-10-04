@@ -11,8 +11,18 @@ import { X } from "lucide-react";
 
 import { cn } from "@/lib/cn";
 
-type Toast = { id: number; message: string; tone: "success" | "danger" };
-type ToastApi = (message: string, tone?: Toast["tone"]) => void;
+type ToastAction = { label: string; onClick: () => void | Promise<void> };
+type Toast = {
+  id: number;
+  message: string;
+  tone: "success" | "danger";
+  action?: ToastAction;
+};
+type ToastApi = (
+  message: string,
+  tone?: Toast["tone"],
+  action?: ToastAction,
+) => void;
 
 const ToastContext = createContext<ToastApi>(() => {});
 let nextId = 1;
@@ -27,10 +37,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     [],
   );
   const toast = useCallback<ToastApi>(
-    (message, tone = "success") => {
+    (message, tone = "success", action) => {
       const id = nextId++;
-      setToasts((all) => [...all, { id, message, tone }]);
-      setTimeout(() => dismiss(id), 5000);
+      setToasts((all) => [...all, { id, message, tone, action }]);
+      // Toasts with an action (undo) stay long enough to reach it.
+      setTimeout(() => dismiss(id), action ? 10000 : 5000);
     },
     [dismiss],
   );
@@ -52,6 +63,18 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             )}
           >
             <p className="flex-1">{t.message}</p>
+            {t.action && (
+              <button
+                type="button"
+                onClick={async () => {
+                  dismiss(t.id);
+                  await t.action?.onClick();
+                }}
+                className="text-accent -my-1 rounded px-1.5 py-1 font-medium hover:underline"
+              >
+                {t.action.label}
+              </button>
+            )}
             <button
               type="button"
               aria-label="Dismiss"
@@ -73,5 +96,29 @@ export function ToastOnMount({ message }: { message: string }) {
   useEffect(() => {
     toast(message);
   }, [message, toast]);
+  return null;
+}
+
+// Like ToastOnMount, with an Undo button that runs a server action.
+export function UndoToastOnMount({
+  message,
+  undo,
+  undoneMessage,
+}: {
+  message: string;
+  undo: () => Promise<void>;
+  undoneMessage: string;
+}) {
+  const toast = useToast();
+  useEffect(() => {
+    toast(message, "success", {
+      label: "Undo",
+      onClick: async () => {
+        await undo();
+        toast(undoneMessage);
+      },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [message]);
   return null;
 }

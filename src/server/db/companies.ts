@@ -166,6 +166,14 @@ export async function archiveCompany(id: number) {
     .where(eq(companies.id, id));
 }
 
+export async function restoreCompany(id: number) {
+  const db = getDb();
+  await db
+    .update(companies)
+    .set({ archivedAt: null, updatedAt: sql`(current_timestamp)` })
+    .where(eq(companies.id, id));
+}
+
 export async function getHomeCounts(business: Business) {
   const db = getDb();
 
