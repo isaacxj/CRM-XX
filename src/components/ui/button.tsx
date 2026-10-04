@@ -15,8 +15,8 @@ export const buttonVariants = cva(
         danger: "bg-danger text-background hover:opacity-90",
       },
       size: {
-        sm: "h-8 px-2.5",
-        md: "h-9 px-3.5",
+        sm: "h-8 px-2.5 max-md:h-(--tap-target) max-md:min-w-(--tap-target)",
+        md: "h-9 px-3.5 max-md:h-(--tap-target)",
         lg: "h-11 px-4",
       },
     },

@@ -131,6 +131,7 @@
   --text-3xl--line-height: 2.5rem;
 
   /* Radius: 6 inputs, 8 cards, 12 sheets and dialogs */
+  --tap-target: 44px;
   --radius-md: 6px;
   --radius-lg: 8px;
   --radius-xl: 12px;

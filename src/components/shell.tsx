@@ -382,7 +382,7 @@ function TopBar({
         type="button"
         onClick={openPalette}
         aria-label="Search or run a command"
-        className="border-border bg-surface text-muted-foreground hover:bg-surface-hover flex h-9 items-center gap-2 rounded-md border px-3 text-sm transition-colors max-md:size-11 max-md:justify-center max-md:px-0"
+        className="border-border bg-surface text-muted-foreground hover:bg-surface-hover flex h-9 items-center gap-2 rounded-md border px-3 text-sm transition-colors max-md:size-(--tap-target) max-md:justify-center max-md:px-0"
       >
         <Search className="size-4" aria-hidden />
         <span className="hidden md:inline">Search or jump to…</span>

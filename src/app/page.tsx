@@ -246,7 +246,7 @@ export default async function Today({
                           type="submit"
                           variant="secondary"
                           size="sm"
-                          className="size-8 px-0"
+                          className="size-8 px-0 max-md:size-(--tap-target)"
                           aria-label={`Mark done: ${task.title}`}
                         >
                           <Check className="size-4" />

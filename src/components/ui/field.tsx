@@ -14,7 +14,12 @@ export function Select({
   className,
   ...props
 }: React.ComponentProps<"select">) {
-  return <select className={cn(controlCls, "h-9", className)} {...props} />;
+  return (
+    <select
+      className={cn(controlCls, "h-9 max-md:h-(--tap-target)", className)}
+      {...props}
+    />
+  );
 }
 
 export function Textarea({
@@ -28,7 +33,12 @@ export function TextInput({
   className,
   ...props
 }: React.ComponentProps<"input">) {
-  return <input className={cn(controlCls, "h-9", className)} {...props} />;
+  return (
+    <input
+      className={cn(controlCls, "h-9 max-md:h-(--tap-target)", className)}
+      {...props}
+    />
+  );
 }
 
 // Label + control + inline error. The control is passed as a render function

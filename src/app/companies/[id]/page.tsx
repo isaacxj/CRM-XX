@@ -1,6 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
+
+import { CompanyColumns } from "@/components/company/columns";
 import {
   Calendar,
   CheckCircle2,
@@ -430,311 +432,100 @@ export default async function CompanyPage({
         )}
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
-        <div className="flex min-w-0 flex-col gap-4">
-          <Card>
-            <h2 className="mb-2 text-sm font-semibold">Details</h2>
-            <dl className="flex flex-col gap-1 text-sm">
-              {(
-                [
-                  ["Name", "name", company.name, undefined],
-                  ["Status", "status", company.status, COMPANY_STATUSES],
-                  ["Website", "website", company.website ?? "", undefined],
-                  ["Source", "source", company.source ?? "", undefined],
-                ] as const
-              ).map(([label, key, value, statuses]) => (
-                <div
-                  key={key}
-                  className="grid grid-cols-[5rem_1fr] items-center gap-2"
-                >
-                  <dt className="text-muted-foreground">{label}</dt>
-                  <dd>
-                    <InlineField
-                      action={updateField}
-                      field={key}
-                      label={label}
-                      value={value}
-                      placeholder={`Add ${label.toLowerCase()}`}
-                      options={statuses?.map((v) => ({
-                        value: v,
-                        label: STATUS_LABEL[v],
-                      }))}
-                      display={
-                        key === "status" ? (
-                          <StatusBadge status={company.status} />
-                        ) : undefined
-                      }
-                    />
+      <CompanyColumns
+        overview={
+          <div className="flex min-w-0 flex-col gap-4">
+            <Card>
+              <h2 className="mb-2 text-sm font-semibold">Details</h2>
+              <dl className="flex flex-col gap-1 text-sm">
+                {(
+                  [
+                    ["Name", "name", company.name, undefined],
+                    ["Status", "status", company.status, COMPANY_STATUSES],
+                    ["Website", "website", company.website ?? "", undefined],
+                    ["Source", "source", company.source ?? "", undefined],
+                  ] as const
+                ).map(([label, key, value, statuses]) => (
+                  <div
+                    key={key}
+                    className="grid grid-cols-[5rem_1fr] items-center gap-2"
+                  >
+                    <dt className="text-muted-foreground">{label}</dt>
+                    <dd>
+                      <InlineField
+                        action={updateField}
+                        field={key}
+                        label={label}
+                        value={value}
+                        placeholder={`Add ${label.toLowerCase()}`}
+                        options={statuses?.map((v) => ({
+                          value: v,
+                          label: STATUS_LABEL[v],
+                        }))}
+                        display={
+                          key === "status" ? (
+                            <StatusBadge status={company.status} />
+                          ) : undefined
+                        }
+                      />
+                    </dd>
+                  </div>
+                ))}
+                <div className="grid grid-cols-[5rem_1fr] items-center gap-2 py-1">
+                  <dt className="text-muted-foreground">Business</dt>
+                  <dd>{BUSINESS_LABEL[company.business]}</dd>
+                </div>
+                <div className="grid grid-cols-[5rem_1fr] items-center gap-2 py-1">
+                  <dt className="text-muted-foreground">Added</dt>
+                  <dd className="num">
+                    {new Date(company.createdAt).toLocaleDateString()}
                   </dd>
                 </div>
-              ))}
-              <div className="grid grid-cols-[5rem_1fr] items-center gap-2 py-1">
-                <dt className="text-muted-foreground">Business</dt>
-                <dd>{BUSINESS_LABEL[company.business]}</dd>
-              </div>
-              <div className="grid grid-cols-[5rem_1fr] items-center gap-2 py-1">
-                <dt className="text-muted-foreground">Added</dt>
-                <dd className="num">
-                  {new Date(company.createdAt).toLocaleDateString()}
-                </dd>
-              </div>
-            </dl>
-          </Card>
+              </dl>
+            </Card>
 
-          <Card>
-            <div className="mb-2 flex items-center justify-between">
-              <h2 className="text-sm font-semibold">Contacts</h2>
-              <Link
-                href={`/companies/${company.id}?contact=new`}
-                className="text-muted-foreground hover:text-foreground text-sm"
-              >
-                Add
-              </Link>
-            </div>
-            {contacts.length === 0 ? (
-              <p className="text-muted-foreground text-sm">
-                No contacts yet. Add the people you work with here.
-              </p>
-            ) : (
-              <ul className="flex flex-col gap-2">
-                {contacts.map((contact) => (
-                  <li
-                    key={contact.id}
-                    className="flex items-center gap-3 text-sm"
-                  >
-                    <Avatar name={contact.name} />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium">{contact.name}</p>
-                      <p className="text-muted-foreground truncate text-xs">
-                        {[contact.title, contact.email, contact.phone]
-                          .filter(Boolean)
-                          .join(" · ") || "No details"}
-                      </p>
-                    </div>
-                    <Link
-                      href={`/companies/${company.id}?contact=${contact.id}`}
-                      className="text-muted-foreground hover:text-foreground"
+            <Card>
+              <div className="mb-2 flex items-center justify-between">
+                <h2 className="text-sm font-semibold">Contacts</h2>
+                <Link
+                  href={`/companies/${company.id}?contact=new`}
+                  className="text-muted-foreground hover:text-foreground text-sm"
+                >
+                  Add
+                </Link>
+              </div>
+              {contacts.length === 0 ? (
+                <p className="text-muted-foreground text-sm">
+                  No contacts yet. Add the people you work with here.
+                </p>
+              ) : (
+                <ul className="flex flex-col gap-2">
+                  {contacts.map((contact) => (
+                    <li
+                      key={contact.id}
+                      className="flex items-center gap-3 text-sm"
                     >
-                      Edit
-                    </Link>
-                    <form action={removeContact}>
-                      <input
-                        type="hidden"
-                        name="contactId"
-                        value={contact.id}
-                      />
-                      <button
-                        type="submit"
-                        className="text-danger hover:underline"
-                      >
-                        Remove
-                      </button>
-                    </form>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
-
-          <Card>
-            <div className="mb-2 flex items-center justify-between">
-              <h2 className="text-sm font-semibold">Deals</h2>
-              <Link
-                href="/deals"
-                className="text-muted-foreground hover:text-foreground text-sm"
-              >
-                Open board
-              </Link>
-            </div>
-            {deals.length === 0 ? (
-              <p className="text-muted-foreground mb-3 text-sm">
-                No deals yet. Add one to start tracking the pipeline.
-              </p>
-            ) : (
-              <ul className="mb-3 flex flex-col gap-3">
-                {deals.map((deal) => (
-                  <li
-                    key={deal.id}
-                    className="border-border rounded-md border p-3 text-sm"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate font-medium">{deal.title}</p>
-                        <p className="text-muted-foreground">
-                          <span className="num">
-                            {formatCents(deal.amountCents)}
-                          </span>{" "}
-                          · {DEAL_BILLING_LABEL[deal.billing]}
-                          {deal.closeDate &&
-                            ` · closes ${formatDueDate(deal.closeDate)}`}
+                      <Avatar name={contact.name} />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-medium">{contact.name}</p>
+                        <p className="text-muted-foreground truncate text-xs">
+                          {[contact.title, contact.email, contact.phone]
+                            .filter(Boolean)
+                            .join(" · ") || "No details"}
                         </p>
                       </div>
-                      <form action={removeDeal}>
-                        <input type="hidden" name="dealId" value={deal.id} />
-                        <button
-                          type="submit"
-                          className="text-danger shrink-0 hover:underline"
-                        >
-                          Remove
-                        </button>
-                      </form>
-                    </div>
-                    <form
-                      action={moveDeal}
-                      className="mt-2 flex flex-wrap items-center gap-2"
-                    >
-                      <input type="hidden" name="dealId" value={deal.id} />
-                      <select
-                        name="stage"
-                        aria-label={`Stage for ${deal.title}`}
-                        defaultValue={deal.stage}
-                        className="border-border-strong bg-surface-raised h-8 rounded-md border px-2 text-sm"
+                      <Link
+                        href={`/companies/${company.id}?contact=${contact.id}`}
+                        className="text-muted-foreground hover:text-foreground"
                       >
-                        {stages.map((stage) => (
-                          <option key={stage} value={stage}>
-                            {DEAL_STAGE_LABEL[stage]}
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        name="lostReason"
-                        type="text"
-                        aria-label="Reason if lost"
-                        defaultValue={deal.lostReason ?? ""}
-                        placeholder="Reason if Lost"
-                        className="border-border-strong bg-surface-raised h-8 min-w-32 flex-1 rounded-md border px-2 text-sm"
-                      />
-                      <button
-                        type="submit"
-                        className={cn(
-                          buttonVariants({ variant: "secondary", size: "sm" }),
-                        )}
-                      >
-                        Update
-                      </button>
-                    </form>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <form
-              action={addDeal}
-              className="border-border grid grid-cols-2 gap-2 border-t pt-3 text-xs"
-            >
-              <label className="col-span-2 flex flex-col gap-1">
-                <span className="text-muted-foreground">Deal</span>
-                <input
-                  name="title"
-                  required
-                  placeholder="Website redesign"
-                  className="border-border-strong bg-surface-raised h-9 rounded-md border px-3 text-sm"
-                />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className="text-muted-foreground">Amount</span>
-                <input
-                  name="amount"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  required
-                  placeholder="5000"
-                  className="border-border-strong bg-surface-raised h-9 rounded-md border px-3 text-sm"
-                />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className="text-muted-foreground">Billing</span>
-                <select
-                  name="billing"
-                  defaultValue={
-                    company.business === "trazo" ? "monthly" : "one_time"
-                  }
-                  className="border-border-strong bg-surface-raised h-9 rounded-md border px-2 text-sm"
-                >
-                  {DEAL_BILLING.map((value) => (
-                    <option key={value} value={value}>
-                      {DEAL_BILLING_LABEL[value]}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className="text-muted-foreground">Expected close</span>
-                <input
-                  name="closeDate"
-                  type="date"
-                  className="border-border-strong bg-surface-raised h-9 rounded-md border px-2 text-sm"
-                />
-              </label>
-              <button
-                type="submit"
-                className={cn(
-                  buttonVariants({ variant: "secondary" }),
-                  "self-end",
-                )}
-              >
-                Add deal
-              </button>
-            </form>
-          </Card>
-
-          <Card id="followups" className="scroll-mt-20">
-            <h2 className="mb-2 text-sm font-semibold">Follow-ups</h2>
-            {tasks.length === 0 ? (
-              <p className="text-muted-foreground mb-3 text-sm">
-                No follow-ups yet. Add one so nothing slips.
-              </p>
-            ) : (
-              <ul className="mb-3 flex flex-col">
-                {tasks.map((task) => (
-                  <li
-                    key={task.id}
-                    className="border-border flex items-center justify-between gap-3 border-b py-2 text-sm last:border-b-0"
-                  >
-                    <div
-                      className={cn(
-                        "min-w-0",
-                        task.doneAt && "text-muted-foreground line-through",
-                      )}
-                    >
-                      <p className="truncate font-medium">{task.title}</p>
-                      <p className="text-muted-foreground text-xs">
-                        {task.dueDate && (
-                          <span className="num">
-                            {formatDueDate(task.dueDate)}
-                          </span>
-                        )}
-                        {task.ownerEmail && ` · ${ownerLabel(task.ownerEmail)}`}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 gap-3">
-                      {task.kind === "awaiting_reply" && !task.doneAt && (
-                        <form action={gotReply}>
-                          <input type="hidden" name="taskId" value={task.id} />
-                          <button
-                            type="submit"
-                            className="text-accent font-medium hover:underline"
-                          >
-                            Got reply
-                          </button>
-                        </form>
-                      )}
-                      <form action={toggleTask}>
-                        <input type="hidden" name="taskId" value={task.id} />
+                        Edit
+                      </Link>
+                      <form action={removeContact}>
                         <input
                           type="hidden"
-                          name="done"
-                          value={task.doneAt ? "1" : "0"}
+                          name="contactId"
+                          value={contact.id}
                         />
-                        <button
-                          type="submit"
-                          className="text-muted-foreground hover:text-foreground"
-                        >
-                          {task.doneAt ? "Reopen" : "Done"}
-                        </button>
-                      </form>
-                      <form action={removeTask}>
-                        <input type="hidden" name="taskId" value={task.id} />
                         <button
                           type="submit"
                           className="text-danger hover:underline"
@@ -742,165 +533,391 @@ export default async function CompanyPage({
                           Remove
                         </button>
                       </form>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <form
-              action={addTask}
-              className="border-border flex flex-wrap items-end gap-2 border-t pt-3 text-xs"
-            >
-              <label className="flex min-w-40 flex-1 flex-col gap-1">
-                <span className="text-muted-foreground">What&apos;s next</span>
-                <input
-                  name="title"
-                  required
-                  placeholder="Send proposal"
-                  className="border-border-strong bg-surface-raised h-9 rounded-md border px-3 text-sm"
-                />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className="text-muted-foreground">Due</span>
-                <input
-                  name="dueDate"
-                  type="date"
-                  className="border-border-strong bg-surface-raised h-9 rounded-md border px-2 text-sm"
-                />
-              </label>
-              <button
-                type="submit"
-                className={cn(buttonVariants({ variant: "secondary" }))}
-              >
-                Add follow-up
-              </button>
-            </form>
-          </Card>
-        </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
 
-        <div className="flex min-w-0 flex-col gap-4">
-          <div id="composer" className="scroll-mt-20">
-            <Composer
-              action={addActivity}
-              contacts={contacts.map((c) => ({ id: c.id, name: c.name }))}
-            />
-          </div>
-
-          <section aria-labelledby="timeline-heading">
-            <h2 id="timeline-heading" className="mb-3 text-sm font-semibold">
-              Timeline
-            </h2>
-            {timeline.length === 0 ? (
-              <p className="text-muted-foreground text-sm">
-                Nothing yet. Log a note, email, call, or meeting above and it
-                shows up here with finished follow-ups and deal changes.
-              </p>
-            ) : (
-              <ol className="border-border flex flex-col border-l">
-                {timeline.map((item, index) => {
-                  const Icon =
-                    item.kind === "activity"
-                      ? ACTIVITY_ICON[item.type]
-                      : item.kind === "task_done"
-                        ? CheckCircle2
-                        : item.kind === "deal_created"
-                          ? Handshake
-                          : ArrowRightLeft;
-                  return (
-                    <li key={index} className="relative pb-5 pl-6 text-sm">
-                      <span className="bg-surface-raised border-border text-muted-foreground absolute -left-3 flex size-6 items-center justify-center rounded-full border">
-                        <Icon className="size-3.5" aria-hidden="true" />
-                      </span>
+            <Card>
+              <div className="mb-2 flex items-center justify-between">
+                <h2 className="text-sm font-semibold">Deals</h2>
+                <Link
+                  href="/deals"
+                  className="text-muted-foreground hover:text-foreground text-sm"
+                >
+                  Open board
+                </Link>
+              </div>
+              {deals.length === 0 ? (
+                <p className="text-muted-foreground mb-3 text-sm">
+                  No deals yet. Add one to start tracking the pipeline.
+                </p>
+              ) : (
+                <ul className="mb-3 flex flex-col gap-3">
+                  {deals.map((deal) => (
+                    <li
+                      key={deal.id}
+                      className="border-border rounded-md border p-3 text-sm"
+                    >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          {item.kind === "activity" && (
-                            <>
-                              <p className="font-medium">
-                                {ACTIVITY_TYPE_LABEL[item.type]}
-                                {item.subject ? `: ${item.subject}` : ""}
-                              </p>
-                              {item.body && (
-                                <p className="mt-0.5 whitespace-pre-wrap">
-                                  {item.body}
-                                </p>
-                              )}
-                            </>
-                          )}
-                          {item.kind === "task_done" && (
-                            <p>
-                              <span className="font-medium">
-                                Completed follow-up:
-                              </span>{" "}
-                              {item.title}
-                            </p>
-                          )}
-                          {item.kind === "deal_created" && (
-                            <p>
-                              <span className="font-medium">New deal:</span>{" "}
-                              {item.title}
-                            </p>
-                          )}
-                          {item.kind === "stage_change" && (
-                            <p>
-                              <span className="font-medium">
-                                {item.dealTitle}:
-                              </span>{" "}
-                              {item.fromStage
-                                ? `${DEAL_STAGE_LABEL[item.fromStage]} → `
-                                : "moved to "}
-                              {DEAL_STAGE_LABEL[item.toStage]}
-                            </p>
-                          )}
-                          <p className="text-muted-foreground num mt-0.5 text-xs">
-                            {item.kind === "activity" && item.type === "meeting"
-                              ? formatMeetingTime(item.at, item.endsAt)
-                              : formatTimestamp(item.at)}
-                            {item.kind === "activity" &&
-                              item.ownerEmail &&
-                              ` · ${ownerLabel(item.ownerEmail)}`}
+                          <p className="truncate font-medium">{deal.title}</p>
+                          <p className="text-muted-foreground">
+                            <span className="num">
+                              {formatCents(deal.amountCents)}
+                            </span>{" "}
+                            · {DEAL_BILLING_LABEL[deal.billing]}
+                            {deal.closeDate &&
+                              ` · closes ${formatDueDate(deal.closeDate)}`}
                           </p>
                         </div>
-                        {item.kind === "activity" && (
-                          <form action={removeActivity}>
-                            <input
-                              type="hidden"
-                              name="activityId"
-                              value={item.id}
-                            />
-                            <button
-                              type="submit"
-                              className="text-muted-foreground hover:text-danger text-xs"
-                            >
-                              Delete
-                            </button>
-                          </form>
-                        )}
+                        <form action={removeDeal}>
+                          <input type="hidden" name="dealId" value={deal.id} />
+                          <button
+                            type="submit"
+                            className="text-danger shrink-0 hover:underline"
+                          >
+                            Remove
+                          </button>
+                        </form>
                       </div>
-                      {item.kind === "activity" &&
-                        item.type === "email_sent" &&
-                        awaitingByActivity.has(item.id) && (
-                          <form action={gotReply} className="mt-1">
+                      <form
+                        action={moveDeal}
+                        className="mt-2 flex flex-wrap items-center gap-2"
+                      >
+                        <input type="hidden" name="dealId" value={deal.id} />
+                        <select
+                          name="stage"
+                          aria-label={`Stage for ${deal.title}`}
+                          defaultValue={deal.stage}
+                          className="border-border-strong bg-surface-raised h-8 rounded-md border px-2 text-sm"
+                        >
+                          {stages.map((stage) => (
+                            <option key={stage} value={stage}>
+                              {DEAL_STAGE_LABEL[stage]}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          name="lostReason"
+                          type="text"
+                          aria-label="Reason if lost"
+                          defaultValue={deal.lostReason ?? ""}
+                          placeholder="Reason if Lost"
+                          className="border-border-strong bg-surface-raised h-8 min-w-32 flex-1 rounded-md border px-2 text-sm"
+                        />
+                        <button
+                          type="submit"
+                          className={cn(
+                            buttonVariants({
+                              variant: "secondary",
+                              size: "sm",
+                            }),
+                          )}
+                        >
+                          Update
+                        </button>
+                      </form>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <form
+                action={addDeal}
+                className="border-border grid grid-cols-2 gap-2 border-t pt-3 text-xs"
+              >
+                <label className="col-span-2 flex flex-col gap-1">
+                  <span className="text-muted-foreground">Deal</span>
+                  <input
+                    name="title"
+                    required
+                    placeholder="Website redesign"
+                    className="border-border-strong bg-surface-raised h-9 rounded-md border px-3 text-sm"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-muted-foreground">Amount</span>
+                  <input
+                    name="amount"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    required
+                    placeholder="5000"
+                    className="border-border-strong bg-surface-raised h-9 rounded-md border px-3 text-sm"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-muted-foreground">Billing</span>
+                  <select
+                    name="billing"
+                    defaultValue={
+                      company.business === "trazo" ? "monthly" : "one_time"
+                    }
+                    className="border-border-strong bg-surface-raised h-9 rounded-md border px-2 text-sm"
+                  >
+                    {DEAL_BILLING.map((value) => (
+                      <option key={value} value={value}>
+                        {DEAL_BILLING_LABEL[value]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-muted-foreground">Expected close</span>
+                  <input
+                    name="closeDate"
+                    type="date"
+                    className="border-border-strong bg-surface-raised h-9 rounded-md border px-2 text-sm"
+                  />
+                </label>
+                <button
+                  type="submit"
+                  className={cn(
+                    buttonVariants({ variant: "secondary" }),
+                    "self-end",
+                  )}
+                >
+                  Add deal
+                </button>
+              </form>
+            </Card>
+
+            <Card id="followups" className="scroll-mt-20">
+              <h2 className="mb-2 text-sm font-semibold">Follow-ups</h2>
+              {tasks.length === 0 ? (
+                <p className="text-muted-foreground mb-3 text-sm">
+                  No follow-ups yet. Add one so nothing slips.
+                </p>
+              ) : (
+                <ul className="mb-3 flex flex-col">
+                  {tasks.map((task) => (
+                    <li
+                      key={task.id}
+                      className="border-border flex items-center justify-between gap-3 border-b py-2 text-sm last:border-b-0"
+                    >
+                      <div
+                        className={cn(
+                          "min-w-0",
+                          task.doneAt && "text-muted-foreground line-through",
+                        )}
+                      >
+                        <p className="truncate font-medium">{task.title}</p>
+                        <p className="text-muted-foreground text-xs">
+                          {task.dueDate && (
+                            <span className="num">
+                              {formatDueDate(task.dueDate)}
+                            </span>
+                          )}
+                          {task.ownerEmail &&
+                            ` · ${ownerLabel(task.ownerEmail)}`}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 gap-3">
+                        {task.kind === "awaiting_reply" && !task.doneAt && (
+                          <form action={gotReply}>
                             <input
                               type="hidden"
                               name="taskId"
-                              value={awaitingByActivity.get(item.id)}
+                              value={task.id}
                             />
                             <button
                               type="submit"
-                              className="text-accent text-xs font-medium hover:underline"
+                              className="text-accent font-medium hover:underline"
                             >
                               Got reply
                             </button>
                           </form>
                         )}
+                        <form action={toggleTask}>
+                          <input type="hidden" name="taskId" value={task.id} />
+                          <input
+                            type="hidden"
+                            name="done"
+                            value={task.doneAt ? "1" : "0"}
+                          />
+                          <button
+                            type="submit"
+                            className="text-muted-foreground hover:text-foreground"
+                          >
+                            {task.doneAt ? "Reopen" : "Done"}
+                          </button>
+                        </form>
+                        <form action={removeTask}>
+                          <input type="hidden" name="taskId" value={task.id} />
+                          <button
+                            type="submit"
+                            className="text-danger hover:underline"
+                          >
+                            Remove
+                          </button>
+                        </form>
+                      </div>
                     </li>
-                  );
-                })}
-              </ol>
-            )}
-          </section>
-        </div>
-      </div>
+                  ))}
+                </ul>
+              )}
+              <form
+                action={addTask}
+                className="border-border flex flex-wrap items-end gap-2 border-t pt-3 text-xs"
+              >
+                <label className="flex min-w-40 flex-1 flex-col gap-1">
+                  <span className="text-muted-foreground">
+                    What&apos;s next
+                  </span>
+                  <input
+                    name="title"
+                    required
+                    placeholder="Send proposal"
+                    className="border-border-strong bg-surface-raised h-9 rounded-md border px-3 text-sm"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-muted-foreground">Due</span>
+                  <input
+                    name="dueDate"
+                    type="date"
+                    className="border-border-strong bg-surface-raised h-9 rounded-md border px-2 text-sm"
+                  />
+                </label>
+                <button
+                  type="submit"
+                  className={cn(buttonVariants({ variant: "secondary" }))}
+                >
+                  Add follow-up
+                </button>
+              </form>
+            </Card>
+          </div>
+        }
+
+        activity={
+          <div className="flex min-w-0 flex-col gap-4">
+            <div id="composer" className="scroll-mt-20">
+              <Composer
+                action={addActivity}
+                contacts={contacts.map((c) => ({ id: c.id, name: c.name }))}
+              />
+            </div>
+
+            <section aria-labelledby="timeline-heading">
+              <h2 id="timeline-heading" className="mb-3 text-sm font-semibold">
+                Timeline
+              </h2>
+              {timeline.length === 0 ? (
+                <p className="text-muted-foreground text-sm">
+                  Nothing yet. Log a note, email, call, or meeting above and it
+                  shows up here with finished follow-ups and deal changes.
+                </p>
+              ) : (
+                <ol className="border-border flex flex-col border-l">
+                  {timeline.map((item, index) => {
+                    const Icon =
+                      item.kind === "activity"
+                        ? ACTIVITY_ICON[item.type]
+                        : item.kind === "task_done"
+                          ? CheckCircle2
+                          : item.kind === "deal_created"
+                            ? Handshake
+                            : ArrowRightLeft;
+                    return (
+                      <li key={index} className="relative pb-5 pl-6 text-sm">
+                        <span className="bg-surface-raised border-border text-muted-foreground absolute -left-3 flex size-6 items-center justify-center rounded-full border">
+                          <Icon className="size-3.5" aria-hidden="true" />
+                        </span>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            {item.kind === "activity" && (
+                              <>
+                                <p className="font-medium">
+                                  {ACTIVITY_TYPE_LABEL[item.type]}
+                                  {item.subject ? `: ${item.subject}` : ""}
+                                </p>
+                                {item.body && (
+                                  <p className="mt-0.5 whitespace-pre-wrap">
+                                    {item.body}
+                                  </p>
+                                )}
+                              </>
+                            )}
+                            {item.kind === "task_done" && (
+                              <p>
+                                <span className="font-medium">
+                                  Completed follow-up:
+                                </span>{" "}
+                                {item.title}
+                              </p>
+                            )}
+                            {item.kind === "deal_created" && (
+                              <p>
+                                <span className="font-medium">New deal:</span>{" "}
+                                {item.title}
+                              </p>
+                            )}
+                            {item.kind === "stage_change" && (
+                              <p>
+                                <span className="font-medium">
+                                  {item.dealTitle}:
+                                </span>{" "}
+                                {item.fromStage
+                                  ? `${DEAL_STAGE_LABEL[item.fromStage]} → `
+                                  : "moved to "}
+                                {DEAL_STAGE_LABEL[item.toStage]}
+                              </p>
+                            )}
+                            <p className="text-muted-foreground num mt-0.5 text-xs">
+                              {item.kind === "activity" &&
+                              item.type === "meeting"
+                                ? formatMeetingTime(item.at, item.endsAt)
+                                : formatTimestamp(item.at)}
+                              {item.kind === "activity" &&
+                                item.ownerEmail &&
+                                ` · ${ownerLabel(item.ownerEmail)}`}
+                            </p>
+                          </div>
+                          {item.kind === "activity" && (
+                            <form action={removeActivity}>
+                              <input
+                                type="hidden"
+                                name="activityId"
+                                value={item.id}
+                              />
+                              <button
+                                type="submit"
+                                className="text-muted-foreground hover:text-danger text-xs"
+                              >
+                                Delete
+                              </button>
+                            </form>
+                          )}
+                        </div>
+                        {item.kind === "activity" &&
+                          item.type === "email_sent" &&
+                          awaitingByActivity.has(item.id) && (
+                            <form action={gotReply} className="mt-1">
+                              <input
+                                type="hidden"
+                                name="taskId"
+                                value={awaitingByActivity.get(item.id)}
+                              />
+                              <button
+                                type="submit"
+                                className="text-accent text-xs font-medium hover:underline"
+                              >
+                                Got reply
+                              </button>
+                            </form>
+                          )}
+                      </li>
+                    );
+                  })}
+                </ol>
+              )}
+            </section>
+          </div>
+        }
+      />
 
       <Link
         href="/companies"

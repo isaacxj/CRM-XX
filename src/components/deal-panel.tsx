@@ -26,7 +26,7 @@ export function DealPanel({
   }, [router, closeHref]);
 
   return (
-    <div className="fixed inset-0 z-40 flex justify-end">
+    <div className="fixed inset-0 z-40 flex items-end justify-end md:items-stretch">
       <button
         type="button"
         aria-label="Close deal panel"
@@ -36,13 +36,13 @@ export function DealPanel({
       />
       <aside
         aria-label={`Deal: ${title}`}
-        className="bg-surface-raised border-border-strong shadow-overlay relative flex h-full w-full max-w-md flex-col gap-5 overflow-y-auto border-l p-5 pb-24 md:pb-5"
+        className="bg-surface-raised border-border-strong shadow-overlay relative flex max-h-[92dvh] w-full max-w-md flex-col gap-5 overflow-y-auto p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] max-md:max-w-none max-md:rounded-t-xl max-md:border-t md:h-full md:max-h-none md:border-l"
       >
         <button
           type="button"
           aria-label="Close"
           onClick={() => router.push(closeHref)}
-          className="text-muted-foreground hover:text-foreground absolute top-3 right-3 rounded-md p-1.5"
+          className="text-muted-foreground hover:text-foreground absolute top-3 right-3 rounded-md p-1.5 max-md:top-1 max-md:right-1 max-md:p-3"
         >
           <X className="size-4" aria-hidden="true" />
         </button>

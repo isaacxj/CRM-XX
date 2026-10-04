@@ -53,7 +53,7 @@ export function FormSheet({
   }, [router, closeHref]);
 
   return (
-    <div className="fixed inset-0 z-40 flex justify-end">
+    <div className="fixed inset-0 z-40 flex items-end justify-end md:items-stretch">
       <button
         type="button"
         aria-label="Close"
@@ -78,9 +78,9 @@ export function FormSheet({
             formRef.current?.requestSubmit();
           }
         }}
-        className="bg-surface-raised border-border-strong shadow-overlay relative flex h-full w-full max-w-md flex-col border-l"
+        className="bg-surface-raised border-border-strong shadow-overlay relative flex max-h-[92dvh] w-full max-w-md flex-col max-md:max-w-none max-md:rounded-t-xl max-md:border-t md:h-full md:max-h-none md:border-l"
       >
-        <header className="border-border flex items-start justify-between gap-3 border-b p-5">
+        <header className="border-border flex items-start justify-between gap-3 border-b p-5 max-md:py-4">
           <div>
             <h2 className="text-lg font-semibold">{title}</h2>
             {description && (
@@ -93,7 +93,7 @@ export function FormSheet({
             type="button"
             aria-label="Close"
             onClick={() => router.push(closeHref)}
-            className="text-muted-foreground hover:text-foreground -m-1.5 rounded-md p-1.5"
+            className="text-muted-foreground hover:text-foreground -m-1.5 rounded-md p-1.5 max-md:-m-2.5 max-md:p-2.5"
           >
             <X className="size-4" aria-hidden="true" />
           </button>
@@ -108,7 +108,7 @@ export function FormSheet({
             {children}
           </div>
         </FormErrorsContext.Provider>
-        <footer className="border-border flex items-center justify-between gap-2 border-t p-4 pb-24 md:pb-4">
+        <footer className="border-border flex items-center justify-between gap-2 border-t p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <span className="text-muted-foreground hidden text-xs md:inline">
             ⌘Enter to save
           </span>

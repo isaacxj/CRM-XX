@@ -76,7 +76,7 @@ export function Composer({
             aria-selected={kind === k}
             onClick={() => setKind(k)}
             className={cn(
-              "inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm",
+              "inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm max-md:h-(--tap-target)",
               kind === k
                 ? "bg-accent-soft text-accent font-medium"
                 : "text-muted-foreground hover:bg-surface-hover hover:text-foreground",
