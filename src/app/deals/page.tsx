@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Pagination } from "@/components/kit/pagination";
+import { pageWindow, parsePage } from "@/lib/pagination";
 import { redirect } from "next/navigation";
 import { firstProblem, recordId, withProblem } from "@/lib/action-input";
 import { LayoutGrid, List } from "lucide-react";
@@ -16,6 +18,8 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/cn";
 import {
   getDealDetail,
+  BOARD_STAGE_CAP,
+  getStageTotals,
   listDealsForBoard,
   moveDealStage,
 } from "@/server/db/deals";
@@ -89,8 +93,17 @@ export default async function DealsPage({
   const dealParam = typeof params.deal === "string" ? Number(params.deal) : 0;
   const stages = business === "statixx" ? STATIXX_STAGES : TRAZO_STAGES;
 
+  const totals = await getStageTotals(business);
+  const dealTotal = Object.values(totals).reduce((n, t) => n + t.count, 0);
+  const window = pageWindow(parsePage(params.page), dealTotal);
+
   const [deals, detail] = await Promise.all([
-    listDealsForBoard(business),
+    view === "board"
+      ? listDealsForBoard(business, { perStage: BOARD_STAGE_CAP })
+      : listDealsForBoard(business, {
+          limit: window.limit,
+          offset: window.offset,
+        }),
     Number.isInteger(dealParam) && dealParam > 0
       ? getDealDetail(dealParam)
       : Promise.resolve(null),
@@ -152,7 +165,7 @@ export default async function DealsPage({
       {movedTo && <ToastOnMount message={`Deal moved to ${movedTo}.`} />}
       <PageHeader
         title="Deals"
-        description={`${deals.length} ${deals.length === 1 ? "deal" : "deals"} in the ${BUSINESS_LABEL[business]} pipeline. Drag a card to change its stage, or open it for details.`}
+        description={`${dealTotal} ${dealTotal === 1 ? "deal" : "deals"} in the ${BUSINESS_LABEL[business]} pipeline. Drag a card to change its stage, or open it for details.`}
         actions={
           <>
             <div className="flex gap-1" role="group" aria-label="Business">
@@ -227,10 +240,12 @@ export default async function DealsPage({
             companyName: deal.companyName,
             daysInStage: daysSince(deal.stageSince),
           }))}
+          totals={totals}
+          cap={BOARD_STAGE_CAP}
           moveAction={moveDeal}
           selectedId={panelDeal?.id ?? null}
         />
-      ) : deals.length === 0 ? (
+      ) : dealTotal === 0 ? (
         <EmptyState
           title={`No ${BUSINESS_LABEL[business]} deals yet. Add one from a company page.`}
           action={
@@ -281,6 +296,16 @@ export default async function DealsPage({
             ))}
           </tbody>
         </DataTable>
+      )}
+      {view === "list" && (
+        <Pagination
+          page={window.page}
+          total={dealTotal}
+          noun="deals"
+          hrefFor={(page) =>
+            `${dealsHref(business, view)}${page > 1 ? `&page=${page}` : ""}`
+          }
+        />
       )}
 
       {panelDeal && (

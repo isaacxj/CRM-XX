@@ -110,10 +110,11 @@ export type TodayFollowUp = {
 export async function listTodayFollowUps(
   business?: Business,
   owner?: string | null,
+  limit?: number,
 ): Promise<TodayFollowUp[]> {
   const db = getDb();
   const today = new Date().toISOString().slice(0, 10);
-  return db
+  const query = db
     .select({
       id: tasks.id,
       title: tasks.title,
@@ -135,6 +136,37 @@ export async function listTodayFollowUps(
       ),
     )
     .orderBy(asc(tasks.dueDate), asc(tasks.id));
+  return limit === undefined ? query : query.limit(limit);
+}
+
+// How many follow-ups are overdue and how many are due today, for the stat
+// cards, so the list above can be capped without the numbers lying.
+export async function countTodayFollowUps(
+  business?: Business,
+  owner?: string | null,
+) {
+  const db = getDb();
+  const today = new Date().toISOString().slice(0, 10);
+  const [row] = await db
+    .select({
+      overdue: sql<number>`coalesce(sum(${tasks.dueDate} < ${today}), 0)`,
+      dueToday: sql<number>`coalesce(sum(${tasks.dueDate} is null or ${tasks.dueDate} >= ${today}), 0)`,
+    })
+    .from(tasks)
+    .leftJoin(companies, eq(tasks.companyId, companies.id))
+    .where(
+      and(
+        eq(tasks.kind, "follow_up"),
+        isNull(tasks.doneAt),
+        lte(tasks.dueDate, today),
+        business ? eq(companies.business, business) : undefined,
+        owner ? eq(tasks.ownerEmail, owner) : undefined,
+      ),
+    );
+  return {
+    overdue: Number(row?.overdue ?? 0),
+    dueToday: Number(row?.dueToday ?? 0),
+  };
 }
 
 // Push a task's due date to `days` from today (UTC date, like the rest of the
@@ -256,11 +288,12 @@ export async function listTasks(
   tab: TaskTab,
   business?: Business,
   owner?: string | null,
+  page?: { limit: number; offset: number },
 ): Promise<TaskRow[]> {
   const db = getDb();
   const today = new Date().toISOString().slice(0, 10);
 
-  return db
+  const query = db
     .select({
       id: tasks.id,
       title: tasks.title,
@@ -280,6 +313,8 @@ export async function listTasks(
       asc(tasks.dueDate),
       asc(tasks.id),
     );
+
+  return page ? query.limit(page.limit).offset(page.offset) : query;
 }
 
 export async function countTasksByTab(

@@ -29,12 +29,18 @@ export function DealBoard({
   business,
   stages,
   deals,
+  totals,
+  cap,
   moveAction,
   selectedId,
 }: {
   business: string;
   stages: BoardStage[];
   deals: BoardDeal[];
+  // Every deal's count and amount per stage, since a column may show only
+  // its newest `cap` cards.
+  totals: Record<string, { count: number; cents: number }>;
+  cap: number;
   moveAction: (formData: FormData) => Promise<void>;
   selectedId: number | null;
 }) {
@@ -87,7 +93,7 @@ export function DealBoard({
         className="-mx-6 flex gap-1 overflow-x-auto px-6 pb-1 md:hidden"
       >
         {stages.map((stage) => {
-          const count = deals.filter((d) => d.stage === stage.value).length;
+          const count = totals[stage.value]?.count ?? 0;
           const active = stage.value === activeStage;
           return (
             <button
@@ -113,7 +119,8 @@ export function DealBoard({
       <div className="flex min-h-0 flex-1 gap-3 md:-mx-8 md:overflow-x-auto md:px-8 md:pb-2">
         {stages.map((stage) => {
           const stageDeals = deals.filter((d) => d.stage === stage.value);
-          const total = stageDeals.reduce((sum, d) => sum + d.amountCents, 0);
+          const total = totals[stage.value]?.cents ?? 0;
+          const hidden = (totals[stage.value]?.count ?? 0) - stageDeals.length;
           const isOver = overStage === stage.value && dragging;
           return (
             <section
@@ -145,7 +152,9 @@ export function DealBoard({
               <header className="border-border flex items-center justify-between gap-2 border-b px-3 py-2">
                 <div className="flex items-center gap-2">
                   <h2 className="text-sm font-semibold">{stage.label}</h2>
-                  <Badge className="num">{stageDeals.length}</Badge>
+                  <Badge className="num">
+                    {totals[stage.value]?.count ?? 0}
+                  </Badge>
                 </div>
                 <span className="num text-muted-foreground text-xs">
                   {formatCents(total)}
@@ -206,6 +215,12 @@ export function DealBoard({
                     )}
                   </article>
                 ))}
+                {hidden > 0 && (
+                  <p className="text-muted-foreground px-1 py-2 text-xs">
+                    Showing the newest {cap} of {totals[stage.value]?.count}.{" "}
+                    Switch to List to see all {hidden + stageDeals.length}.
+                  </p>
+                )}
               </div>
             </section>
           );

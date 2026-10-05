@@ -19,9 +19,41 @@ export async function listDealsForCompany(companyId: number) {
     .orderBy(asc(deals.createdAt));
 }
 
-export async function listDealsForBoard(business: Business) {
+// Cards shown per column on the board; headers still count every deal.
+export const BOARD_STAGE_CAP = 40;
+
+export type StageTotal = { count: number; cents: number };
+
+export async function getStageTotals(
+  business: Business,
+): Promise<Record<string, StageTotal>> {
   const db = getDb();
-  return db
+  const rows = await db
+    .select({
+      stage: deals.stage,
+      count: sql<number>`count(*)`,
+      cents: sql<number>`coalesce(sum(${deals.amountCents}), 0)`,
+    })
+    .from(deals)
+    .innerJoin(companies, eq(deals.companyId, companies.id))
+    .where(eq(companies.business, business))
+    .groupBy(deals.stage);
+  return Object.fromEntries(
+    rows.map((r) => [
+      r.stage,
+      { count: Number(r.count), cents: Number(r.cents) },
+    ]),
+  );
+}
+
+// `perStage` keeps only the newest N deals in each stage (the board);
+// `limit` and `offset` page through everything (the list).
+export async function listDealsForBoard(
+  business: Business,
+  opts: { perStage?: number; limit?: number; offset?: number } = {},
+) {
+  const db = getDb();
+  const query = db
     .select({
       id: deals.id,
       title: deals.title,
@@ -37,8 +69,27 @@ export async function listDealsForBoard(business: Business) {
     })
     .from(deals)
     .innerJoin(companies, eq(deals.companyId, companies.id))
-    .where(eq(companies.business, business))
-    .orderBy(asc(deals.createdAt));
+    .where(
+      and(
+        eq(companies.business, business),
+        opts.perStage !== undefined
+          ? sql`${deals.id} in (
+              select id from (
+                select d.id, row_number() over (
+                  partition by d.stage order by d.created_at desc, d.id desc
+                ) as rn
+                from deals d join companies c on c.id = d.company_id
+                where c.business = ${business}
+              ) where rn <= ${opts.perStage}
+            )`
+          : undefined,
+      ),
+    )
+    .orderBy(asc(deals.createdAt), asc(deals.id));
+
+  return opts.limit !== undefined
+    ? query.limit(opts.limit).offset(opts.offset ?? 0)
+    : query;
 }
 
 export type DealStageChange = {

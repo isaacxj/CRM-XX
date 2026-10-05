@@ -16,6 +16,7 @@
     "db:migrate": "wrangler d1 migrations apply crm-xx --local",
     "alerts:dev": "wrangler dev --config workers/alerts/wrangler.jsonc --test-scheduled --persist-to .wrangler/state",
     "db:seed": "tsx scripts/seed.ts",
+    "db:seed:large": "wrangler d1 execute crm-xx --local --file=scripts/seed-large.sql",
     "prepare": "husky"
   },
   "dependencies": {

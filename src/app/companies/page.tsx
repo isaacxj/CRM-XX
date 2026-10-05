@@ -11,7 +11,11 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatDaysAgo } from "@/lib/activity";
 import { revalidatePath } from "next/cache";
+import { Pagination } from "@/components/kit/pagination";
+import { pageWindow, parsePage } from "@/lib/pagination";
 import {
+  countCompanies,
+  type CompanyFilters,
   getCompany,
   listCompanies,
   restoreCompany,
@@ -86,13 +90,33 @@ export default async function CompaniesPage({
   const sort = params.sort === "last_activity" ? "last_activity" : "name";
   const dir = params.dir === "desc" ? "desc" : "asc";
 
-  const companies = await listCompanies({
+  const filters: CompanyFilters = {
     business,
     status,
     q: q || undefined,
     sort,
     dir,
+  };
+  const total = await countCompanies(filters);
+  const window = pageWindow(parsePage(params.page), total);
+  const companies = await listCompanies({
+    ...filters,
+    limit: window.limit,
+    offset: window.offset,
   });
+
+  const pageHref = (page: number) => {
+    const next = new URLSearchParams();
+    if (business) next.set("business", business);
+    if (status) next.set("status", status);
+    if (q) next.set("q", q);
+    if (sort === "last_activity") {
+      next.set("sort", sort);
+      next.set("dir", dir);
+    }
+    if (page > 1) next.set("page", String(page));
+    return next.size ? `/companies?${next}` : "/companies";
+  };
 
   // Clicking Last activity sorts stalest first, then flips.
   const sortParams = new URLSearchParams();
@@ -137,7 +161,7 @@ export default async function CompaniesPage({
       )}
       <PageHeader
         title="Companies"
-        description={`${companies.length} ${companies.length === 1 ? "company" : "companies"}`}
+        description={`${total} ${total === 1 ? "company" : "companies"}`}
         actions={
           <>
             <Link
@@ -215,7 +239,7 @@ export default async function CompaniesPage({
         </Button>
       </form>
 
-      {companies.length === 0 ? (
+      {total === 0 ? (
         <EmptyState
           title="No companies match these filters yet. Add one or import a CSV to get started."
           action={
@@ -269,6 +293,12 @@ export default async function CompaniesPage({
           </tbody>
         </DataTable>
       )}
+      <Pagination
+        page={window.page}
+        total={total}
+        hrefFor={pageHref}
+        noun="companies"
+      />
     </div>
   );
 }

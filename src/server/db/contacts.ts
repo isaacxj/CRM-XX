@@ -15,16 +15,27 @@ export async function listContactsForCompany(companyId: number) {
 
 export type ContactFilters = {
   q?: string;
+  limit?: number;
+  offset?: number;
 };
+
+function contactCondition(filters: ContactFilters) {
+  return filters.q ? matches(contacts.name, likePattern(filters.q)) : undefined;
+}
+
+export async function countContacts(filters: ContactFilters) {
+  const db = getDb();
+  const [row] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(contacts)
+    .where(contactCondition(filters));
+  return Number(row?.count ?? 0);
+}
 
 export async function listContacts(filters: ContactFilters) {
   const db = getDb();
 
-  const condition = filters.q
-    ? matches(contacts.name, likePattern(filters.q))
-    : undefined;
-
-  return db
+  const query = db
     .select({
       id: contacts.id,
       name: contacts.name,
@@ -37,8 +48,12 @@ export async function listContacts(filters: ContactFilters) {
     })
     .from(contacts)
     .innerJoin(companies, eq(contacts.companyId, companies.id))
-    .where(condition)
-    .orderBy(asc(contacts.name));
+    .where(contactCondition(filters))
+    .orderBy(asc(contacts.name), asc(contacts.id));
+
+  return filters.limit !== undefined
+    ? query.limit(filters.limit).offset(filters.offset ?? 0)
+    : query;
 }
 
 export async function getContact(id: number) {
