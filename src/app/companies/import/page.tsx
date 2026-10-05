@@ -91,7 +91,8 @@ export default function ImportCompaniesPage() {
     setError("");
     const mapping = buildMapping(columnFields);
     startTransition(async () => {
-      await runImport(business, rows, mapping);
+      const result = await runImport({ business, rows, mapping });
+      if (result?.error) setError(result.error);
     });
   }
 

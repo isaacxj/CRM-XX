@@ -1,5 +1,6 @@
 import { asc, eq, sql } from "drizzle-orm";
 
+import { likePattern, matches } from "./search";
 import { getDb } from "./index";
 import { companies, contacts } from "./schema";
 
@@ -20,7 +21,7 @@ export async function listContacts(filters: ContactFilters) {
   const db = getDb();
 
   const condition = filters.q
-    ? sql`lower(${contacts.name}) like ${`%${filters.q.toLowerCase()}%`}`
+    ? matches(contacts.name, likePattern(filters.q))
     : undefined;
 
   return db

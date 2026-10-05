@@ -7,12 +7,12 @@ const RESULT_LIMIT = 25;
 
 export type SearchScope = { q: string; business?: Business };
 
-function likePattern(q: string) {
+export function likePattern(q: string) {
   const escaped = q.toLowerCase().replace(/[\\%_]/g, (char) => `\\${char}`);
   return `%${escaped}%`;
 }
 
-function matches(column: unknown, pattern: string): SQL {
+export function matches(column: unknown, pattern: string): SQL {
   return sql`lower(coalesce(${column}, '')) like ${pattern} escape '\\'`;
 }
 

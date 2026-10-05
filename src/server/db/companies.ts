@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 
+import { likePattern, matches } from "./search";
 import { getDb } from "./index";
 import {
   companies,
@@ -51,9 +52,7 @@ export async function listCompanies(filters: CompanyFilters) {
     conditions.push(eq(companies.business, filters.business));
   if (filters.status) conditions.push(eq(companies.status, filters.status));
   if (filters.q) {
-    conditions.push(
-      sql`lower(${companies.name}) like ${`%${filters.q.toLowerCase()}%`}`,
-    );
+    conditions.push(matches(companies.name, likePattern(filters.q)));
   }
 
   const order =
