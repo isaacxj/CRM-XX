@@ -8,6 +8,7 @@ import {
   Mail,
   Palette,
   Search,
+  Settings,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -41,6 +42,9 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   },
   {
     label: "System",
-    items: [{ href: "/design", label: "Design", Icon: Palette }],
+    items: [
+      { href: "/settings", label: "Settings", Icon: Settings },
+      { href: "/design", label: "Design", Icon: Palette },
+    ],
   },
 ];

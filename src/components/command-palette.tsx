@@ -19,6 +19,7 @@ import { searchPalette, type PaletteHit } from "@/app/palette-actions";
 import { NAV_GROUPS } from "@/components/nav";
 import { cn } from "@/lib/cn";
 import { applyTheme } from "@/lib/theme";
+import { SHORTCUTS } from "@/lib/shortcuts";
 
 const OPEN_EVENT = "crm-open-palette";
 
@@ -34,15 +35,6 @@ type Command = {
   Icon: LucideIcon;
   run: (router: ReturnType<typeof useRouter>, pathname: string) => void;
 };
-
-const SHORTCUTS: { keys: string; label: string }[] = [
-  { keys: "⌘K / Ctrl+K", label: "Open the command palette" },
-  { keys: "/", label: "Search companies, contacts, and deals" },
-  { keys: "?", label: "Show this list" },
-  { keys: "↑ ↓", label: "Move through palette results" },
-  { keys: "Enter", label: "Run the highlighted result" },
-  { keys: "Esc", label: "Close the palette or this list" },
-];
 
 function businessTarget(pathname: string, business: string) {
   if (pathname.startsWith("/deals")) return `/deals?business=${business}`;

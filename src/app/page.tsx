@@ -8,6 +8,7 @@ import { StatCard } from "@/components/kit/stat-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { GettingStarted } from "@/components/getting-started";
 import { WhoFilter, parseWho } from "@/components/who-filter";
 import { formatDaysAgo, formatMeetingTime, ownerLabel } from "@/lib/activity";
 import {
@@ -16,6 +17,7 @@ import {
 } from "@/server/db/activities";
 import { COLD_AFTER_DAYS, listGoingCold } from "@/server/db/companies";
 import { getPipelineSnapshot } from "@/server/db/deals";
+import { getStartProgress } from "@/server/db/onboarding";
 import { BUSINESSES, type Business } from "@/server/db/schema";
 import {
   completeTask,
@@ -107,16 +109,20 @@ export default async function Today({
   if (who === "mine") query.set("who", "mine");
   const here = query.size > 0 ? `/?${query}` : "/";
 
-  const [followUps, waiting, meetings, pipeline, ...coldLists] =
+  const [followUps, waiting, meetings, pipeline, progress, ...coldLists] =
     await Promise.all([
       listTodayFollowUps(business, owner),
       listWaitingOnReply(business, owner),
       listUpcomingMeetings(7, owner),
       getPipelineSnapshot(business),
+      Promise.all((business ? [business] : BUSINESSES).map(getStartProgress)),
       ...(business ? [business] : BUSINESSES).map(async (b) =>
         (await listGoingCold(b)).map((c) => ({ ...c, business: b })),
       ),
     ]);
+  const starting = progress.filter(
+    (p) => p.companies === 0 || p.activities === 0,
+  );
   const cold = coldLists
     .flat()
     .sort((a, b) => a.lastActivityAt.localeCompare(b.lastActivityAt));
@@ -201,6 +207,10 @@ export default async function Today({
           )
         }
       />
+
+      {starting.map((p) => (
+        <GettingStarted key={p.business} progress={p} />
+      ))}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
