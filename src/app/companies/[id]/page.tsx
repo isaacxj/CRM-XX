@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
 
@@ -28,6 +29,17 @@ import { BusinessBadge, StatusBadge } from "@/components/kit/status-badges";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  dealInput,
+  fieldUpdateInput,
+  firstProblem,
+  followUpInput,
+  formObject,
+  logActivityInput,
+  optionalDate,
+  recordId,
+  withProblem,
+} from "@/lib/action-input";
 import { cn } from "@/lib/cn";
 
 import {
@@ -63,12 +75,10 @@ import {
   reopenTask,
 } from "@/server/db/tasks";
 import {
-  ACTIVITY_TYPES,
   COMPANY_STATUSES,
   DEAL_BILLING,
   STATIXX_STAGES,
   TRAZO_STAGES,
-  type ActivityType,
   type Business,
   type CompanyStatus,
   type DealBilling,
@@ -165,6 +175,16 @@ export default async function CompanyPage({
   const lastActivityAt = await getCompanyLastActivity(companyId);
   const stages = company.business === "statixx" ? STATIXX_STAGES : TRAZO_STAGES;
 
+  const here = `/companies/${companyId}`;
+
+  // Validates form input; on a problem, sends the person back with a message.
+  function parse<T extends z.ZodType>(schema: T, formData: FormData) {
+    const parsed = schema.safeParse(formObject(formData));
+    if (!parsed.success)
+      redirect(withProblem(here, firstProblem(parsed.error)));
+    return parsed.data as z.output<T>;
+  }
+
   async function archive() {
     "use server";
     await archiveCompany(companyId);
@@ -173,163 +193,125 @@ export default async function CompanyPage({
 
   async function removeContact(formData: FormData) {
     "use server";
-    const contactId = Number(formData.get("contactId"));
-    await deleteContact(contactId);
-    redirect(`/companies/${companyId}`);
+    const contactIdInput = z.object({ contactId: recordId });
+    await deleteContact(parse(contactIdInput, formData).contactId);
+    redirect(here);
   }
 
   async function addDeal(formData: FormData) {
     "use server";
-    const title = formData.get("title");
-    const amount = formData.get("amount");
-    const billing = formData.get("billing");
-    const closeDate = formData.get("closeDate");
-    const amountValue = typeof amount === "string" ? Number(amount) : NaN;
-
-    if (
-      typeof title !== "string" ||
-      title.trim().length === 0 ||
-      typeof billing !== "string" ||
-      !(DEAL_BILLING as readonly string[]).includes(billing) ||
-      !Number.isFinite(amountValue) ||
-      amountValue < 0
-    ) {
-      throw new Error(
-        "Deal needs a title, a valid amount, and a billing type.",
-      );
-    }
-
+    const input = parse(dealInput, formData);
     await createDeal(companyId, {
-      title: title.trim(),
-      amountCents: Math.round(amountValue * 100),
-      billing: billing as DealBilling,
-      closeDate:
-        typeof closeDate === "string" && closeDate.trim()
-          ? closeDate.trim()
-          : null,
+      title: input.title,
+      amountCents: Math.round(input.amount * 100),
+      billing: input.billing,
+      closeDate: input.closeDate,
     });
-    redirect(`/companies/${companyId}`);
+    redirect(here);
   }
 
   async function moveDeal(formData: FormData) {
     "use server";
-    const dealId = Number(formData.get("dealId"));
-    const stage = formData.get("stage");
-    const lostReason = formData.get("lostReason");
-
-    if (
-      typeof stage !== "string" ||
-      !(stages as readonly string[]).includes(stage)
-    ) {
-      throw new Error("Pick a valid stage.");
-    }
-
-    await moveDealStage(
-      dealId,
-      stage as DealStage,
-      typeof lostReason === "string" ? lostReason : null,
+    const input = parse(
+      z.object({
+        dealId: recordId,
+        stage: z.enum(stages, { error: "Pick a valid stage." }),
+        lostReason: z.string().optional(),
+      }),
+      formData,
     );
-    redirect(`/companies/${companyId}`);
+    try {
+      await moveDealStage(input.dealId, input.stage, input.lostReason ?? null);
+    } catch (e) {
+      redirect(
+        withProblem(
+          here,
+          e instanceof Error ? e.message : "Couldn't move that deal.",
+        ),
+      );
+    }
+    redirect(here);
   }
 
   async function removeDeal(formData: FormData) {
     "use server";
-    const dealId = Number(formData.get("dealId"));
-    await deleteDeal(dealId);
-    redirect(`/companies/${companyId}`);
+    await deleteDeal(parse(z.object({ dealId: recordId }), formData).dealId);
+    redirect(here);
   }
 
   async function addActivity(formData: FormData) {
     "use server";
-    const type = formData.get("type");
-    const contactId = Number(formData.get("contactId"));
-    const str = (key: string) => {
-      const v = formData.get(key);
-      return typeof v === "string" ? v : "";
-    };
-    await createActivity({
-      companyId,
-      type: ACTIVITY_TYPES.includes(type as ActivityType)
-        ? (type as ActivityType)
-        : "note",
-      contactId:
-        Number.isInteger(contactId) && contactId > 0 ? contactId : null,
-      subject: str("subject"),
-      body: str("body"),
-      occurredAt: str("occurredAt") || null,
-      endsAt: str("endsAt") || null,
-      remindInDays: Number(str("remindInDays")) || null,
-    });
-    revalidatePath(`/companies/${companyId}`);
+    const input = parse(logActivityInput, formData);
+    try {
+      await createActivity({
+        companyId,
+        type: input.type,
+        contactId: input.contactId,
+        subject: input.subject,
+        body: input.body,
+        occurredAt: input.occurredAt,
+        endsAt: input.endsAt,
+        remindInDays: input.remindInDays,
+      });
+    } catch (e) {
+      redirect(
+        withProblem(
+          here,
+          e instanceof Error ? e.message : "Couldn't save that activity.",
+        ),
+      );
+    }
+    revalidatePath(here);
   }
 
   async function updateField(formData: FormData) {
     "use server";
-    const field = formData.get("field");
-    const raw = formData.get("value");
-    const value = typeof raw === "string" ? raw.trim() : "";
-    if (field === "name") {
-      if (!value) throw new Error("Name can't be empty.");
-      await updateCompanyFields(companyId, { name: value });
-    } else if (field === "website") {
-      await updateCompanyFields(companyId, { website: value || null });
-    } else if (field === "source") {
-      await updateCompanyFields(companyId, { source: value || null });
-    } else if (
-      field === "status" &&
-      (COMPANY_STATUSES as readonly string[]).includes(value)
-    ) {
-      await updateCompanyFields(companyId, { status: value as CompanyStatus });
-    } else {
-      throw new Error("That field can't be edited here.");
-    }
-    revalidatePath(`/companies/${companyId}`);
+    const input = parse(fieldUpdateInput, formData);
+    await updateCompanyFields(companyId, { [input.field]: input.value });
+    revalidatePath(here);
   }
 
   async function gotReply(formData: FormData) {
     "use server";
-    await markReplyReceived(Number(formData.get("taskId")));
-    redirect(`/companies/${companyId}`);
+    await markReplyReceived(
+      parse(z.object({ taskId: recordId }), formData).taskId,
+    );
+    redirect(here);
   }
 
   async function removeActivity(formData: FormData) {
     "use server";
-    await deleteActivity(Number(formData.get("activityId")));
-    redirect(`/companies/${companyId}`);
+    await deleteActivity(
+      parse(z.object({ activityId: recordId }), formData).activityId,
+    );
+    redirect(here);
   }
 
   async function addTask(formData: FormData) {
     "use server";
-    const title = formData.get("title");
-    const dueDate = formData.get("dueDate");
-    if (typeof title !== "string" || title.trim().length === 0) {
-      throw new Error("Follow-up needs a title.");
-    }
-    await createTask(companyId, {
-      title: title.trim(),
-      dueDate:
-        typeof dueDate === "string" && dueDate.trim() ? dueDate.trim() : null,
-    });
-    redirect(`/companies/${companyId}`);
+    const input = parse(
+      z.object({ title: followUpInput.shape.title, dueDate: optionalDate }),
+      formData,
+    );
+    await createTask(companyId, { title: input.title, dueDate: input.dueDate });
+    redirect(here);
   }
 
   async function toggleTask(formData: FormData) {
     "use server";
-    const taskId = Number(formData.get("taskId"));
-    const wasDone = formData.get("done") === "1";
-    if (wasDone) {
+    const taskId = parse(z.object({ taskId: recordId }), formData).taskId;
+    if (formData.get("done") === "1") {
       await reopenTask(taskId);
     } else {
       await completeTask(taskId);
     }
-    redirect(`/companies/${companyId}`);
+    redirect(here);
   }
 
   async function removeTask(formData: FormData) {
     "use server";
-    const taskId = Number(formData.get("taskId"));
-    await deleteTask(taskId);
-    redirect(`/companies/${companyId}`);
+    await deleteTask(parse(z.object({ taskId: recordId }), formData).taskId);
+    redirect(here);
   }
 
   const websiteHref = company.website

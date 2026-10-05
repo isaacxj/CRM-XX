@@ -1,5 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { z } from "zod";
+import {
+  firstProblem,
+  formObject,
+  idInput,
+  snoozeInput,
+  withProblem,
+} from "@/lib/action-input";
 import { Check } from "lucide-react";
 
 import { BusinessBadge } from "@/components/kit/status-badges";
@@ -158,27 +166,30 @@ export default async function Today({
   const totalCents = stageRows.reduce((sum, [, v]) => sum + v.cents, 0);
   const openDeals = stageRows.reduce((sum, [, v]) => sum + v.count, 0);
 
+  // Validates form input; on a problem, sends the person back with a message.
+  function parse<T extends z.ZodType>(schema: T, formData: FormData) {
+    const parsed = schema.safeParse(formObject(formData));
+    if (!parsed.success)
+      redirect(withProblem(here, firstProblem(parsed.error)));
+    return parsed.data as z.output<T>;
+  }
+
   async function complete(formData: FormData) {
     "use server";
-    const id = Number(formData.get("id"));
-    if (Number.isInteger(id)) await completeTask(id);
+    await completeTask(parse(idInput, formData).id);
     redirect(here);
   }
 
   async function snooze(formData: FormData) {
     "use server";
-    const id = Number(formData.get("id"));
-    const days = Number(formData.get("days"));
-    if (Number.isInteger(id) && [1, 3, 7].includes(days)) {
-      await snoozeTask(id, days);
-    }
+    const { id, days } = parse(snoozeInput, formData);
+    await snoozeTask(id, days);
     redirect(here);
   }
 
   async function gotReply(formData: FormData) {
     "use server";
-    const id = Number(formData.get("id"));
-    if (Number.isInteger(id)) await markReplyReceived(id);
+    await markReplyReceived(parse(idInput, formData).id);
     redirect(here);
   }
 

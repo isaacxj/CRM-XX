@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { firstProblem, recordId, withProblem } from "@/lib/action-input";
 import { LayoutGrid, List } from "lucide-react";
 
 import { DealBoard } from "@/components/deal-board";
@@ -99,7 +100,11 @@ export default async function DealsPage({
 
   async function moveDeal(formData: FormData) {
     "use server";
-    const dealId = Number(formData.get("dealId"));
+    const parsedId = recordId.safeParse(formData.get("dealId"));
+    if (!parsedId.success) {
+      redirect(withProblem("/deals", firstProblem(parsedId.error)));
+    }
+    const dealId = parsedId.data;
     const stage = formData.get("stage");
     const lostReason = formData.get("lostReason");
     const forBusiness = formData.get("business");

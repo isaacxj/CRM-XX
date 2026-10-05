@@ -1,7 +1,8 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { env } from "@/env";
-import { ToastProvider } from "@/components/kit/toast";
+import { FlashProblem, ToastProvider } from "@/components/kit/toast";
 import { Shell } from "@/components/shell";
 import { getCurrentUserEmail } from "@/server/user";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
@@ -42,6 +43,9 @@ export default async function RootLayout({
       <body className="flex min-h-full flex-col">
         <ToastProvider>
           <Shell userEmail={userEmail}>{children}</Shell>
+          <Suspense>
+            <FlashProblem />
+          </Suspense>
         </ToastProvider>
       </body>
     </html>

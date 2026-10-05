@@ -1,5 +1,14 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { z } from "zod";
+import {
+  firstProblem,
+  followUpInput,
+  formObject,
+  idInput,
+  snoozeInput,
+  withProblem,
+} from "@/lib/action-input";
 
 import { BusinessBadge } from "@/components/kit/status-badges";
 import { EmptyState } from "@/components/kit/data-table";
@@ -98,10 +107,17 @@ export default async function TasksPage({
   ]);
   const today = new Date().toISOString().slice(0, 10);
 
+  // Validates form input; on a problem, sends the person back with a message.
+  function parse<T extends z.ZodType>(schema: T, formData: FormData) {
+    const parsed = schema.safeParse(formObject(formData));
+    if (!parsed.success)
+      redirect(withProblem(here, firstProblem(parsed.error)));
+    return parsed.data as z.output<T>;
+  }
+
   async function toggle(formData: FormData) {
     "use server";
-    const id = Number(formData.get("id"));
-    if (!Number.isInteger(id)) return;
+    const { id } = parse(idInput, formData);
     if (formData.get("done") === "1") {
       await reopenTask(id);
     } else {
@@ -112,51 +128,34 @@ export default async function TasksPage({
 
   async function snooze(formData: FormData) {
     "use server";
-    const id = Number(formData.get("id"));
-    const days = Number(formData.get("days"));
-    if (Number.isInteger(id) && [1, 3, 7].includes(days)) {
-      await snoozeTask(id, days);
-    }
+    const { id, days } = parse(snoozeInput, formData);
+    await snoozeTask(id, days);
     redirect(here);
   }
 
   async function gotReply(formData: FormData) {
     "use server";
-    const id = Number(formData.get("id"));
-    if (!Number.isInteger(id)) return;
-    await markReplyReceived(id);
+    await markReplyReceived(parse(idInput, formData).id);
     redirect(here);
   }
 
   async function remove(formData: FormData) {
     "use server";
-    const id = Number(formData.get("id"));
-    if (!Number.isInteger(id)) return;
-    await deleteTask(id);
+    await deleteTask(parse(idInput, formData).id);
     redirect(here);
   }
 
   async function add(formData: FormData) {
     "use server";
-    const title = formData.get("title");
-    const dueDate = formData.get("dueDate");
-    const companyRaw = formData.get("companyId");
-    if (typeof title !== "string" || title.trim().length === 0) {
-      throw new Error("Describe the follow-up before adding it.");
-    }
-    const companyId =
-      typeof companyRaw === "string" && companyRaw !== ""
-        ? Number(companyRaw)
-        : null;
-    if (companyId !== null && !Number.isInteger(companyId)) {
-      throw new Error("Pick a company from the list, or leave it blank.");
-    }
-    const due =
-      typeof dueDate === "string" && dueDate.trim() ? dueDate.trim() : null;
-    await createTask(companyId, { title: title.trim(), dueDate: due });
+    const { title, dueDate, companyId } = parse(followUpInput, formData);
+    await createTask(companyId, { title, dueDate });
     // Land on the tab where the new task will show up.
     const landing: TaskTab =
-      due && due < today ? "overdue" : due === today ? "today" : "upcoming";
+      dueDate && dueDate < today
+        ? "overdue"
+        : dueDate === today
+          ? "today"
+          : "upcoming";
     redirect(tasksHref(landing, business, who));
   }
 
