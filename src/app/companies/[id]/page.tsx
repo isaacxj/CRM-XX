@@ -21,7 +21,7 @@ import { InlineField } from "@/components/company/inline-field";
 import { Avatar } from "@/components/kit/avatar";
 import { saveContactAction } from "@/app/form-actions";
 import { ContactSheet } from "@/components/forms/contact-sheet";
-import { ToastOnMount } from "@/components/kit/toast";
+import { ToastOnMount, UndoToastOnMount } from "@/components/kit/toast";
 import { ConfirmSubmit } from "@/components/kit/confirm-dialog";
 import { PageHeader } from "@/components/kit/page-header";
 import { BusinessBadge, StatusBadge } from "@/components/kit/status-badges";
@@ -37,6 +37,14 @@ import {
   updateCompanyFields,
 } from "@/server/db/companies";
 import { deleteContact, listContactsForCompany } from "@/server/db/contacts";
+import {
+  parseSnapshot,
+  restoreRemoved,
+  snapshotActivity,
+  snapshotContact,
+  snapshotTask,
+  type RemovedSnapshot,
+} from "@/server/db/restore";
 import {
   createDeal,
   deleteDeal,
@@ -140,6 +148,19 @@ const SAVED_MESSAGE: Record<string, string> = {
   followup: "Follow-up added.",
 };
 
+const REMOVED_LABEL = {
+  contact: "Contact removed.",
+  task: "Follow-up removed.",
+  activity: "Activity removed.",
+} as const;
+
+function removedHref(companyId: number, snapshot: RemovedSnapshot | null) {
+  const base = `/companies/${companyId}`;
+  return snapshot
+    ? `${base}?removed=${encodeURIComponent(JSON.stringify(snapshot))}`
+    : base;
+}
+
 export default async function CompanyPage({
   params,
   searchParams,
@@ -174,8 +195,9 @@ export default async function CompanyPage({
   async function removeContact(formData: FormData) {
     "use server";
     const contactId = Number(formData.get("contactId"));
+    const snapshot = await snapshotContact(contactId);
     await deleteContact(contactId);
-    redirect(`/companies/${companyId}`);
+    redirect(removedHref(companyId, snapshot));
   }
 
   async function addDeal(formData: FormData) {
@@ -294,8 +316,10 @@ export default async function CompanyPage({
 
   async function removeActivity(formData: FormData) {
     "use server";
-    await deleteActivity(Number(formData.get("activityId")));
-    redirect(`/companies/${companyId}`);
+    const activityId = Number(formData.get("activityId"));
+    const snapshot = await snapshotActivity(activityId);
+    await deleteActivity(activityId);
+    redirect(removedHref(companyId, snapshot));
   }
 
   async function addTask(formData: FormData) {
@@ -328,8 +352,17 @@ export default async function CompanyPage({
   async function removeTask(formData: FormData) {
     "use server";
     const taskId = Number(formData.get("taskId"));
+    const snapshot = await snapshotTask(taskId);
     await deleteTask(taskId);
-    redirect(`/companies/${companyId}`);
+    redirect(removedHref(companyId, snapshot));
+  }
+
+  async function undoRemoval() {
+    "use server";
+    if (removed) {
+      await restoreRemoved(removed);
+      revalidatePath(`/companies/${companyId}`);
+    }
   }
 
   const websiteHref = company.website
@@ -357,6 +390,9 @@ export default async function CompanyPage({
       : undefined;
   const contactSheetOpen =
     contactParam === "new" || editingContact !== undefined;
+  const removed = parseSnapshot(
+    typeof query.removed === "string" ? query.removed : undefined,
+  );
   const savedMessage =
     typeof query.saved === "string" ? SAVED_MESSAGE[query.saved] : undefined;
 
@@ -366,6 +402,14 @@ export default async function CompanyPage({
       className="flex flex-1 flex-col gap-6 p-4 md:p-8"
     >
       {savedMessage && <ToastOnMount message={savedMessage} />}
+      {removed && removed.row.companyId === companyId && (
+        <UndoToastOnMount
+          key={`${removed.kind}-${removed.row.id}`}
+          message={REMOVED_LABEL[removed.kind]}
+          undo={undoRemoval}
+          undoneMessage="Restored."
+        />
+      )}
       {contactSheetOpen && (
         <ContactSheet
           key={editingContact?.id ?? "new"}
