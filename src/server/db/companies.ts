@@ -1,5 +1,16 @@
-import { and, asc, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  ne,
+  sql,
+} from "drizzle-orm";
 
+import { likePattern, matches } from "./search";
 import { getDb } from "./index";
 import {
   companies,
@@ -17,6 +28,8 @@ export type CompanyFilters = {
   q?: string;
   sort?: CompanySort;
   dir?: "asc" | "desc";
+  limit?: number;
+  offset?: number;
 };
 
 // Days without activity before a prospect or open deal counts as going cold.
@@ -43,18 +56,42 @@ const lastActivityAt = sql<string>`max(
   datetime(${companyCreatedAt})
 )`;
 
-export async function listCompanies(filters: CompanyFilters) {
-  const db = getDb();
-
+function companyConditions(filters: CompanyFilters) {
   const conditions = [isNull(companies.archivedAt)];
   if (filters.business)
     conditions.push(eq(companies.business, filters.business));
   if (filters.status) conditions.push(eq(companies.status, filters.status));
   if (filters.q) {
-    conditions.push(
-      sql`lower(${companies.name}) like ${`%${filters.q.toLowerCase()}%`}`,
-    );
+    conditions.push(matches(companies.name, likePattern(filters.q)));
   }
+  return and(...conditions);
+}
+
+export async function countCompanies(filters: CompanyFilters) {
+  const db = getDb();
+  const [row] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(companies)
+    .where(companyConditions(filters));
+  return Number(row?.count ?? 0);
+}
+
+// Just enough to fill a picker or a select: no activity lookups, no paging.
+export async function listCompanyOptions() {
+  const db = getDb();
+  return db
+    .select({
+      id: companies.id,
+      name: companies.name,
+      business: companies.business,
+    })
+    .from(companies)
+    .where(isNull(companies.archivedAt))
+    .orderBy(asc(companies.name));
+}
+
+export async function listCompanies(filters: CompanyFilters) {
+  const db = getDb();
 
   const order =
     filters.sort === "last_activity"
@@ -64,14 +101,19 @@ export async function listCompanies(filters: CompanyFilters) {
         ]
       : [asc(companies.name)];
 
-  return db
+  const query = db
     .select({ company: companies, lastActivityAt })
     .from(companies)
-    .where(and(...conditions))
-    .orderBy(...order)
-    .then((rows) =>
-      rows.map((r) => ({ ...r.company, lastActivityAt: r.lastActivityAt })),
-    );
+    .where(companyConditions(filters))
+    .orderBy(...order);
+
+  return (
+    filters.limit !== undefined
+      ? query.limit(filters.limit).offset(filters.offset ?? 0)
+      : query
+  ).then((rows) =>
+    rows.map((r) => ({ ...r.company, lastActivityAt: r.lastActivityAt })),
+  );
 }
 
 // Prospects and companies with an open deal that nobody has touched for
@@ -176,54 +218,99 @@ export async function restoreCompany(id: number) {
 
 export async function getHomeCounts(business: Business) {
   const db = getDb();
+  const live = and(
+    eq(companies.business, business),
+    isNull(companies.archivedAt),
+  );
 
-  const companyRows = await db
-    .select()
-    .from(companies)
-    .where(and(eq(companies.business, business), isNull(companies.archivedAt)));
-
-  const companyIds = companyRows.map((c) => c.id);
-
-  if (companyIds.length === 0) {
-    return {
-      companyCount: 0,
-      clientCount: 0,
-      prospectCount: 0,
-      openDealCount: 0,
-      pipelineCents: 0,
-      openTaskCount: 0,
-    };
-  }
-
-  const [openDeals, openTasks] = await Promise.all([
+  const [[counts], [openDeals], [openTasks]] = await Promise.all([
     db
-      .select()
+      .select({
+        companyCount: sql<number>`count(*)`,
+        clientCount: sql<number>`coalesce(sum(${companies.status} = 'client'), 0)`,
+        prospectCount: sql<number>`coalesce(sum(${companies.status} = 'prospect'), 0)`,
+      })
+      .from(companies)
+      .where(live),
+    db
+      .select({
+        count: sql<number>`count(*)`,
+        cents: sql<number>`coalesce(sum(${deals.amountCents}), 0)`,
+      })
       .from(deals)
-      .where(
-        and(
-          inArray(deals.companyId, companyIds),
-          ne(deals.stage, "won"),
-          ne(deals.stage, "lost"),
-        ),
-      ),
+      .innerJoin(companies, eq(deals.companyId, companies.id))
+      .where(and(live, ne(deals.stage, "won"), ne(deals.stage, "lost"))),
     db
-      .select()
+      .select({ count: sql<number>`count(*)` })
       .from(tasks)
-      .where(
-        and(
-          inArray(tasks.companyId, companyIds),
-          eq(tasks.kind, "follow_up"),
-          isNull(tasks.doneAt),
-        ),
-      ),
+      .innerJoin(companies, eq(tasks.companyId, companies.id))
+      .where(and(live, eq(tasks.kind, "follow_up"), isNull(tasks.doneAt))),
   ]);
 
   return {
-    companyCount: companyRows.length,
-    clientCount: companyRows.filter((c) => c.status === "client").length,
-    prospectCount: companyRows.filter((c) => c.status === "prospect").length,
-    openDealCount: openDeals.length,
-    pipelineCents: openDeals.reduce((sum, d) => sum + d.amountCents, 0),
-    openTaskCount: openTasks.length,
+    companyCount: Number(counts?.companyCount ?? 0),
+    clientCount: Number(counts?.clientCount ?? 0),
+    prospectCount: Number(counts?.prospectCount ?? 0),
+    openDealCount: Number(openDeals?.count ?? 0),
+    pipelineCents: Number(openDeals?.cents ?? 0),
+    openTaskCount: Number(openTasks?.count ?? 0),
   };
+}
+
+// D1 allows 100 bound parameters per statement; a list page shows 50 rows.
+export const BULK_MAX = 50;
+
+export async function bulkArchiveCompanies(ids: number[]) {
+  const db = getDb();
+  const rows = await db
+    .update(companies)
+    .set({
+      archivedAt: sql`(current_timestamp)`,
+      updatedAt: sql`(current_timestamp)`,
+    })
+    .where(and(inArray(companies.id, ids), isNull(companies.archivedAt)))
+    .returning({ id: companies.id });
+  return rows.map((r) => r.id);
+}
+
+export async function bulkRestoreCompanies(ids: number[]) {
+  const db = getDb();
+  await db
+    .update(companies)
+    .set({ archivedAt: null, updatedAt: sql`(current_timestamp)` })
+    .where(and(inArray(companies.id, ids), isNotNull(companies.archivedAt)));
+}
+
+export async function bulkSetCompanyStatus(
+  ids: number[],
+  status: CompanyStatus,
+) {
+  const db = getDb();
+  const rows = await db
+    .update(companies)
+    .set({ status, updatedAt: sql`(current_timestamp)` })
+    .where(and(inArray(companies.id, ids), isNull(companies.archivedAt)))
+    .returning({ id: companies.id });
+  return rows.length;
+}
+
+// Deal stages differ per business, so a company that has deals stays where
+// it is. Returns how many moved; the rest were skipped.
+export async function bulkSetCompanyBusiness(
+  ids: number[],
+  business: Business,
+) {
+  const db = getDb();
+  const rows = await db
+    .update(companies)
+    .set({ business, updatedAt: sql`(current_timestamp)` })
+    .where(
+      and(
+        inArray(companies.id, ids),
+        isNull(companies.archivedAt),
+        sql`not exists (select 1 from deals where company_id = ${companyId})`,
+      ),
+    )
+    .returning({ id: companies.id });
+  return rows.length;
 }

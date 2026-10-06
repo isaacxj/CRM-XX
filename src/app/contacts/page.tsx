@@ -6,7 +6,9 @@ import { PageHeader } from "@/components/kit/page-header";
 import { BusinessBadge } from "@/components/kit/status-badges";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { listContacts } from "@/server/db/contacts";
+import { Pagination } from "@/components/kit/pagination";
+import { pageWindow, parsePage } from "@/lib/pagination";
+import { countContacts, listContacts } from "@/server/db/contacts";
 
 export default async function ContactsPage({
   searchParams,
@@ -17,7 +19,13 @@ export default async function ContactsPage({
   const q = typeof params.q === "string" ? params.q : "";
   const focusSearch = params.focus === "1";
 
-  const contacts = await listContacts({ q: q || undefined });
+  const total = await countContacts({ q: q || undefined });
+  const window = pageWindow(parsePage(params.page), total);
+  const contacts = await listContacts({
+    q: q || undefined,
+    limit: window.limit,
+    offset: window.offset,
+  });
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6 pb-24 md:p-8 md:pb-8">
@@ -46,7 +54,7 @@ export default async function ContactsPage({
         </Button>
       </form>
 
-      {contacts.length === 0 ? (
+      {total === 0 ? (
         <EmptyState
           title={
             q
@@ -108,6 +116,17 @@ export default async function ContactsPage({
           </tbody>
         </DataTable>
       )}
+      <Pagination
+        page={window.page}
+        total={total}
+        noun="contacts"
+        hrefFor={(page) => {
+          const next = new URLSearchParams();
+          if (q) next.set("q", q);
+          if (page > 1) next.set("page", String(page));
+          return next.size ? `/contacts?${next}` : "/contacts";
+        }}
+      />
     </div>
   );
 }

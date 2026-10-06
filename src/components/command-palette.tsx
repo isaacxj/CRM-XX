@@ -15,7 +15,11 @@ import {
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { searchPalette, type PaletteHit } from "@/app/palette-actions";
+import {
+  recentPalette,
+  searchPalette,
+  type PaletteHit,
+} from "@/app/palette-actions";
 import { NAV_GROUPS } from "@/components/nav";
 import { cn } from "@/lib/cn";
 import { applyTheme } from "@/lib/theme";
@@ -206,8 +210,19 @@ function Palette({ onClose }: { onClose: () => void }) {
   const pathname = usePathname();
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<PaletteHit[]>([]);
+  const [recents, setRecents] = useState<PaletteHit[]>([]);
   const [cursor, setCursor] = useState(0);
   const listRef = useRef<HTMLUListElement>(null);
+
+  useEffect(() => {
+    let current = true;
+    recentPalette()
+      .then((found) => current && setRecents(found))
+      .catch(() => {});
+    return () => {
+      current = false;
+    };
+  }, []);
 
   // Records come from the server; stale responses are dropped.
   useEffect(() => {
@@ -226,16 +241,14 @@ function Palette({ onClose }: { onClose: () => void }) {
   }, [query]);
 
   const term = query.trim().toLowerCase();
-  const recordRows: Row[] = term
-    ? hits.map((hit) => ({
-        key: hit.key,
-        group: "Records",
-        label: hit.label,
-        detail: hit.detail,
-        Icon: KIND_ICON[hit.kind],
-        run: () => router.push(hit.href),
-      }))
-    : [];
+  const recordRows: Row[] = (term ? hits : recents).map((hit) => ({
+    key: hit.key,
+    group: term ? "Records" : "Recent",
+    label: hit.label,
+    detail: hit.detail,
+    Icon: KIND_ICON[hit.kind],
+    run: () => router.push(hit.href),
+  }));
   const commandRows: Row[] = COMMANDS.filter(
     (command) =>
       !term || `${command.group} ${command.label}`.toLowerCase().includes(term),

@@ -11,6 +11,7 @@ import {
   PanelLeftOpen,
   Plus,
   Search,
+  Star,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -29,6 +30,8 @@ import { NAV_GROUPS, type NavItem } from "@/components/nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/cn";
 import type { Business } from "@/server/db/schema";
+
+export type PinnedCompany = { id: number; name: string; business: string };
 
 const PHONE_TABS: NavItem[] = [
   { href: "/", label: "Home", Icon: Home },
@@ -280,7 +283,42 @@ function SidebarLink({
   );
 }
 
-function Sidebar({ pathname }: { pathname: string }) {
+function PinnedLink({
+  pin,
+  active,
+  collapsed,
+}: {
+  pin: PinnedCompany;
+  active: boolean;
+  collapsed: boolean;
+}) {
+  return (
+    <Link
+      href={`/companies/${pin.id}`}
+      title={collapsed ? pin.name : undefined}
+      aria-label={collapsed ? pin.name : undefined}
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "flex h-8 items-center gap-2 rounded-md px-2 text-sm font-medium transition-colors",
+        collapsed && "justify-center",
+        active
+          ? "bg-accent-soft text-foreground"
+          : "text-muted-foreground hover:bg-surface-hover hover:text-foreground",
+      )}
+    >
+      <BusinessDot business={pin.business} />
+      {!collapsed && <span className="truncate">{pin.name}</span>}
+    </Link>
+  );
+}
+
+function Sidebar({
+  pathname,
+  pins,
+}: {
+  pathname: string;
+  pins: PinnedCompany[];
+}) {
   const [collapsed, toggle] = useSidebarCollapsed();
 
   return (
@@ -322,6 +360,25 @@ function Sidebar({ pathname }: { pathname: string }) {
             ))}
           </div>
         ))}
+        {pins.length > 0 && (
+          <div className="flex flex-col gap-0.5">
+            {collapsed ? (
+              <div className="bg-border mx-2 mb-1 h-px" aria-hidden />
+            ) : (
+              <p className="text-muted-foreground px-2 pb-1 text-xs font-medium">
+                Pinned
+              </p>
+            )}
+            {pins.map((pin) => (
+              <PinnedLink
+                key={pin.id}
+                pin={pin}
+                active={pathname === `/companies/${pin.id}`}
+                collapsed={collapsed}
+              />
+            ))}
+          </div>
+        )}
       </nav>
       <button
         type="button"
@@ -450,10 +507,12 @@ function PhoneNav({
 function MenuSheet({
   pathname,
   switcher,
+  pins,
   onClose,
 }: {
   pathname: string;
   switcher: ReactNode;
+  pins: PinnedCompany[];
   onClose: () => void;
 }) {
   useEffect(() => {
@@ -522,6 +581,24 @@ function MenuSheet({
               ))}
             </div>
           ))}
+          {pins.length > 0 && (
+            <div className="flex flex-col">
+              <p className="text-muted-foreground px-2 pb-1 text-xs font-medium">
+                Pinned
+              </p>
+              {pins.map((pin) => (
+                <Link
+                  key={pin.id}
+                  href={`/companies/${pin.id}`}
+                  onClick={onClose}
+                  className="flex min-h-11 items-center gap-3 rounded-md px-2 text-sm font-medium"
+                >
+                  <Star className="size-4" aria-hidden />
+                  <span className="truncate">{pin.name}</span>
+                </Link>
+              ))}
+            </div>
+          )}
           <div className="flex items-center justify-between px-2">
             <span className="text-sm font-medium">Theme</span>
             <ThemeToggle />
@@ -535,9 +612,11 @@ function MenuSheet({
 export function Shell({
   children,
   userEmail,
+  pins,
 }: {
   children: ReactNode;
   userEmail: string | null;
+  pins: PinnedCompany[];
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -567,7 +646,7 @@ export function Shell({
       >
         Skip to content
       </a>
-      <Sidebar pathname={pathname} />
+      <Sidebar pathname={pathname} pins={pins} />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar pathname={pathname} switcher={switcher} email={userEmail} />
         <main
@@ -585,6 +664,7 @@ export function Shell({
         <MenuSheet
           pathname={pathname}
           switcher={switcher}
+          pins={pins}
           onClose={() => setMenuPath(null)}
         />
       )}

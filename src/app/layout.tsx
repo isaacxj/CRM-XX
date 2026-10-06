@@ -1,8 +1,10 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { env } from "@/env";
-import { ToastProvider } from "@/components/kit/toast";
+import { FlashProblem, ToastProvider } from "@/components/kit/toast";
 import { Shell } from "@/components/shell";
+import { listPinnedCompanies } from "@/server/db/pins";
 import { getCurrentUserEmail } from "@/server/user";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
@@ -29,6 +31,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const userEmail = await getCurrentUserEmail();
+  const pins = await listPinnedCompanies(userEmail ?? "");
 
   return (
     <html
@@ -41,7 +44,12 @@ export default async function RootLayout({
       </head>
       <body className="flex min-h-full flex-col">
         <ToastProvider>
-          <Shell userEmail={userEmail}>{children}</Shell>
+          <Shell userEmail={userEmail} pins={pins}>
+            {children}
+          </Shell>
+          <Suspense>
+            <FlashProblem />
+          </Suspense>
         </ToastProvider>
       </body>
     </html>

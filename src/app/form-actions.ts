@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 
 import { createActivity } from "@/server/db/activities";
-import { createCompany, listCompanies } from "@/server/db/companies";
+import { createCompany, listCompanyOptions } from "@/server/db/companies";
 import { createContact, updateContact } from "@/server/db/contacts";
 import { createTask } from "@/server/db/tasks";
 import {
@@ -78,6 +78,5 @@ export async function addFollowUpAction(
 
 // Companies for the searchable picker in the quick-add sheets.
 export async function listPickerCompanies() {
-  const rows = await listCompanies({});
-  return rows.map((c) => ({ id: c.id, name: c.name, business: c.business }));
+  return listCompanyOptions();
 }

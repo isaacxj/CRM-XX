@@ -7,6 +7,7 @@ import {
   useEffect,
   useState,
 } from "react";
+import { useSearchParams } from "next/navigation";
 import { X } from "lucide-react";
 
 import { cn } from "@/lib/cn";
@@ -120,5 +121,20 @@ export function UndoToastOnMount({
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [message]);
+  return null;
+}
+
+// Shows the `?problem=` message left by a server action that rejected its
+// input, then removes it from the address so a reload doesn't repeat it.
+export function FlashProblem() {
+  const toast = useToast();
+  const message = useSearchParams().get("problem");
+  useEffect(() => {
+    if (!message) return;
+    toast(message, "danger");
+    const url = new URL(window.location.href);
+    url.searchParams.delete("problem");
+    window.history.replaceState(null, "", url);
+  }, [message, toast]);
   return null;
 }

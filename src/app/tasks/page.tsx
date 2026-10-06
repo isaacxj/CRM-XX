@@ -1,5 +1,14 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { z } from "zod";
+import {
+  firstProblem,
+  followUpInput,
+  formObject,
+  idInput,
+  snoozeInput,
+  withProblem,
+} from "@/lib/action-input";
 
 import { BusinessBadge } from "@/components/kit/status-badges";
 import { EmptyState } from "@/components/kit/data-table";
@@ -13,7 +22,10 @@ import { WhoFilter, parseWho, type Who } from "@/components/who-filter";
 import { ownerLabel } from "@/lib/activity";
 import { markReplyReceived } from "@/server/db/activities";
 import { getCurrentUserEmail } from "@/server/user";
-import { listCompanies } from "@/server/db/companies";
+import { CompanyPicker } from "@/components/kit/company-picker";
+import { Pagination } from "@/components/kit/pagination";
+import { pageWindow, parsePage } from "@/lib/pagination";
+import { listCompanyOptions } from "@/server/db/companies";
 import { BUSINESSES, type Business } from "@/server/db/schema";
 import {
   TASK_TABS,
@@ -68,10 +80,16 @@ function formatDueDate(dateStr: string) {
   return new Date(year, month - 1, day).toLocaleDateString();
 }
 
-function tasksHref(tab: TaskTab, business?: Business, who: Who = "everyone") {
+function tasksHref(
+  tab: TaskTab,
+  business?: Business,
+  who: Who = "everyone",
+  page = 1,
+) {
   const params = new URLSearchParams({ tab });
   if (business) params.set("business", business);
   if (who === "mine") params.set("who", "mine");
+  if (page > 1) params.set("page", String(page));
   return `/tasks?${params.toString()}`;
 }
 
@@ -91,17 +109,28 @@ export default async function TasksPage({
   const owner = who === "mine" ? me : null;
   const here = tasksHref(tab, business, who);
 
-  const [tasks, counts, companies] = await Promise.all([
-    listTasks(tab, business, owner),
+  const [counts, companies] = await Promise.all([
     countTasksByTab(business, owner),
-    listCompanies({}),
+    listCompanyOptions(),
   ]);
+  const window = pageWindow(parsePage(params.page), counts[tab]);
+  const tasks = await listTasks(tab, business, owner, {
+    limit: window.limit,
+    offset: window.offset,
+  });
   const today = new Date().toISOString().slice(0, 10);
+
+  // Validates form input; on a problem, sends the person back with a message.
+  function parse<T extends z.ZodType>(schema: T, formData: FormData) {
+    const parsed = schema.safeParse(formObject(formData));
+    if (!parsed.success)
+      redirect(withProblem(here, firstProblem(parsed.error)));
+    return parsed.data as z.output<T>;
+  }
 
   async function toggle(formData: FormData) {
     "use server";
-    const id = Number(formData.get("id"));
-    if (!Number.isInteger(id)) return;
+    const { id } = parse(idInput, formData);
     if (formData.get("done") === "1") {
       await reopenTask(id);
     } else {
@@ -112,51 +141,34 @@ export default async function TasksPage({
 
   async function snooze(formData: FormData) {
     "use server";
-    const id = Number(formData.get("id"));
-    const days = Number(formData.get("days"));
-    if (Number.isInteger(id) && [1, 3, 7].includes(days)) {
-      await snoozeTask(id, days);
-    }
+    const { id, days } = parse(snoozeInput, formData);
+    await snoozeTask(id, days);
     redirect(here);
   }
 
   async function gotReply(formData: FormData) {
     "use server";
-    const id = Number(formData.get("id"));
-    if (!Number.isInteger(id)) return;
-    await markReplyReceived(id);
+    await markReplyReceived(parse(idInput, formData).id);
     redirect(here);
   }
 
   async function remove(formData: FormData) {
     "use server";
-    const id = Number(formData.get("id"));
-    if (!Number.isInteger(id)) return;
-    await deleteTask(id);
+    await deleteTask(parse(idInput, formData).id);
     redirect(here);
   }
 
   async function add(formData: FormData) {
     "use server";
-    const title = formData.get("title");
-    const dueDate = formData.get("dueDate");
-    const companyRaw = formData.get("companyId");
-    if (typeof title !== "string" || title.trim().length === 0) {
-      throw new Error("Describe the follow-up before adding it.");
-    }
-    const companyId =
-      typeof companyRaw === "string" && companyRaw !== ""
-        ? Number(companyRaw)
-        : null;
-    if (companyId !== null && !Number.isInteger(companyId)) {
-      throw new Error("Pick a company from the list, or leave it blank.");
-    }
-    const due =
-      typeof dueDate === "string" && dueDate.trim() ? dueDate.trim() : null;
-    await createTask(companyId, { title: title.trim(), dueDate: due });
+    const { title, dueDate, companyId } = parse(followUpInput, formData);
+    await createTask(companyId, { title, dueDate });
     // Land on the tab where the new task will show up.
     const landing: TaskTab =
-      due && due < today ? "overdue" : due === today ? "today" : "upcoming";
+      dueDate && dueDate < today
+        ? "overdue"
+        : dueDate === today
+          ? "today"
+          : "upcoming";
     redirect(tasksHref(landing, business, who));
   }
 
@@ -228,7 +240,7 @@ export default async function TasksPage({
         </p>
       )}
 
-      {tasks.length === 0 ? (
+      {counts[tab] === 0 ? (
         <EmptyState title={EMPTY_COPY[tab]} />
       ) : (
         <div className="flex flex-col gap-5">
@@ -363,6 +375,13 @@ export default async function TasksPage({
         </div>
       )}
 
+      <Pagination
+        page={window.page}
+        total={counts[tab]}
+        noun="tasks"
+        hrefFor={(page) => tasksHref(tab, business, who, page)}
+      />
+
       <form action={add}>
         <Card className="flex flex-col gap-3">
           <h2 className="text-lg font-semibold">Add a task</h2>
@@ -381,29 +400,9 @@ export default async function TasksPage({
             </div>
             <div className="flex flex-col gap-1 sm:col-span-2">
               <label htmlFor="task-company" className="text-sm font-medium">
-                Company (optional)
+                Company (optional, leave empty for none)
               </label>
-              <select
-                id="task-company"
-                name="companyId"
-                defaultValue=""
-                className="border-border-strong bg-surface-raised h-9 rounded-md border px-3 text-sm"
-              >
-                <option value="">No company</option>
-                {BUSINESSES.map((b) => {
-                  const inBusiness = companies.filter((c) => c.business === b);
-                  if (inBusiness.length === 0) return null;
-                  return (
-                    <optgroup key={b} label={BUSINESS_LABEL[b]}>
-                      {inBusiness.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </optgroup>
-                  );
-                })}
-              </select>
+              <CompanyPicker id="task-company" companies={companies} />
             </div>
             <div className="flex flex-col gap-1">
               <label htmlFor="task-due" className="text-sm font-medium">

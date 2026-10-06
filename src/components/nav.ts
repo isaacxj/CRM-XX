@@ -4,6 +4,7 @@ import {
   CheckSquare,
   Download,
   Handshake,
+  HelpCircle,
   Home,
   Mail,
   Palette,
@@ -44,6 +45,7 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     label: "System",
     items: [
       { href: "/settings", label: "Settings", Icon: Settings },
+      { href: "/help", label: "Help", Icon: HelpCircle },
       { href: "/design", label: "Design", Icon: Palette },
     ],
   },

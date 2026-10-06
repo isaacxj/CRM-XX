@@ -1,5 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { z } from "zod";
+import {
+  firstProblem,
+  formObject,
+  idInput,
+  snoozeInput,
+  withProblem,
+} from "@/lib/action-input";
 import { Check } from "lucide-react";
 
 import { BusinessBadge } from "@/components/kit/status-badges";
@@ -21,6 +29,7 @@ import { getStartProgress } from "@/server/db/onboarding";
 import { BUSINESSES, type Business } from "@/server/db/schema";
 import {
   completeTask,
+  countTodayFollowUps,
   listTodayFollowUps,
   listWaitingOnReply,
   snoozeTask,
@@ -69,6 +78,22 @@ function formatDayHeading(dateStr: string, today: string) {
   });
 }
 
+// Long lists show their first rows; the section count and stat cards still
+// show the real totals, and the Tasks page has the rest.
+const LIST_CAP = 25;
+
+function ShowingFirst({ shown, total }: { shown: number; total: number }) {
+  if (total <= shown) return null;
+  return (
+    <p className="text-muted-foreground num mt-2 text-xs">
+      Showing the first {shown} of {total}.{" "}
+      <Link href="/tasks" className="text-accent underline">
+        See all tasks
+      </Link>
+    </p>
+  );
+}
+
 function SectionTitle({
   children,
   count,
@@ -109,17 +134,25 @@ export default async function Today({
   if (who === "mine") query.set("who", "mine");
   const here = query.size > 0 ? `/?${query}` : "/";
 
-  const [followUps, waiting, meetings, pipeline, progress, ...coldLists] =
-    await Promise.all([
-      listTodayFollowUps(business, owner),
-      listWaitingOnReply(business, owner),
-      listUpcomingMeetings(7, owner),
-      getPipelineSnapshot(business),
-      Promise.all((business ? [business] : BUSINESSES).map(getStartProgress)),
-      ...(business ? [business] : BUSINESSES).map(async (b) =>
-        (await listGoingCold(b)).map((c) => ({ ...c, business: b })),
-      ),
-    ]);
+  const [
+    followUps,
+    followUpCounts,
+    waiting,
+    meetings,
+    pipeline,
+    progress,
+    ...coldLists
+  ] = await Promise.all([
+    listTodayFollowUps(business, owner, LIST_CAP),
+    countTodayFollowUps(business, owner),
+    listWaitingOnReply(business, owner),
+    listUpcomingMeetings(7, owner),
+    getPipelineSnapshot(business),
+    Promise.all((business ? [business] : BUSINESSES).map(getStartProgress)),
+    ...(business ? [business] : BUSINESSES).map(async (b) =>
+      (await listGoingCold(b)).map((c) => ({ ...c, business: b })),
+    ),
+  ]);
   const starting = progress.filter(
     (p) => p.companies === 0 || p.activities === 0,
   );
@@ -130,8 +163,7 @@ export default async function Today({
     ? meetings.filter((m) => m.business === business)
     : meetings;
 
-  const overdue = followUps.filter((t) => t.dueDate && t.dueDate < today);
-  const dueToday = followUps.filter((t) => !t.dueDate || t.dueDate >= today);
+  const followUpTotal = followUpCounts.overdue + followUpCounts.dueToday;
   const waitingOverdue = waiting.filter((w) => w.overdue).length;
   const meetingsToday = visibleMeetings.filter(
     (m) => m.occurredAt.slice(0, 10) === today,
@@ -158,27 +190,30 @@ export default async function Today({
   const totalCents = stageRows.reduce((sum, [, v]) => sum + v.cents, 0);
   const openDeals = stageRows.reduce((sum, [, v]) => sum + v.count, 0);
 
+  // Validates form input; on a problem, sends the person back with a message.
+  function parse<T extends z.ZodType>(schema: T, formData: FormData) {
+    const parsed = schema.safeParse(formObject(formData));
+    if (!parsed.success)
+      redirect(withProblem(here, firstProblem(parsed.error)));
+    return parsed.data as z.output<T>;
+  }
+
   async function complete(formData: FormData) {
     "use server";
-    const id = Number(formData.get("id"));
-    if (Number.isInteger(id)) await completeTask(id);
+    await completeTask(parse(idInput, formData).id);
     redirect(here);
   }
 
   async function snooze(formData: FormData) {
     "use server";
-    const id = Number(formData.get("id"));
-    const days = Number(formData.get("days"));
-    if (Number.isInteger(id) && [1, 3, 7].includes(days)) {
-      await snoozeTask(id, days);
-    }
+    const { id, days } = parse(snoozeInput, formData);
+    await snoozeTask(id, days);
     redirect(here);
   }
 
   async function gotReply(formData: FormData) {
     "use server";
-    const id = Number(formData.get("id"));
-    if (Number.isInteger(id)) await markReplyReceived(id);
+    await markReplyReceived(parse(idInput, formData).id);
     redirect(here);
   }
 
@@ -215,10 +250,12 @@ export default async function Today({
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
           label="Overdue follow-ups"
-          value={overdue.length}
-          hint={overdue.length === 0 ? "All caught up" : "Needs attention"}
+          value={followUpCounts.overdue}
+          hint={
+            followUpCounts.overdue === 0 ? "All caught up" : "Needs attention"
+          }
         />
-        <StatCard label="Due today" value={dueToday.length} />
+        <StatCard label="Due today" value={followUpCounts.dueToday} />
         <StatCard
           label="Waiting on reply"
           value={waiting.length}
@@ -230,7 +267,7 @@ export default async function Today({
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <div className="flex min-w-0 flex-col gap-6">
           <section aria-labelledby="follow-ups">
-            <SectionTitle count={followUps.length}>
+            <SectionTitle count={followUpTotal}>
               <span id="follow-ups">Follow-ups</span>
             </SectionTitle>
             {followUps.length === 0 ? (
@@ -315,6 +352,7 @@ export default async function Today({
                 })}
               </Card>
             )}
+            <ShowingFirst shown={followUps.length} total={followUpTotal} />
           </section>
 
           <section aria-labelledby="waiting">
@@ -328,7 +366,7 @@ export default async function Today({
               </Card>
             ) : (
               <Card className="divide-border divide-y p-0">
-                {waiting.map((task) => (
+                {waiting.slice(0, LIST_CAP).map((task) => (
                   <div
                     key={task.id}
                     className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3"
@@ -369,6 +407,10 @@ export default async function Today({
                 ))}
               </Card>
             )}
+            <ShowingFirst
+              shown={Math.min(waiting.length, LIST_CAP)}
+              total={waiting.length}
+            />
           </section>
 
           <section aria-labelledby="cold">
@@ -382,7 +424,7 @@ export default async function Today({
               </Card>
             ) : (
               <Card className="divide-border divide-y p-0">
-                {cold.map((c) => (
+                {cold.slice(0, LIST_CAP).map((c) => (
                   <Link
                     key={c.id}
                     href={`/companies/${c.id}`}
@@ -402,6 +444,10 @@ export default async function Today({
                 ))}
               </Card>
             )}
+            <ShowingFirst
+              shown={Math.min(cold.length, LIST_CAP)}
+              total={cold.length}
+            />
           </section>
         </div>
 
