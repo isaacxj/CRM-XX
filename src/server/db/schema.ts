@@ -1,5 +1,11 @@
 import { sql } from "drizzle-orm";
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import {
+  index,
+  integer,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from "drizzle-orm/sqlite-core";
 
 export const BUSINESSES = ["statixx", "trazo"] as const;
 export type Business = (typeof BUSINESSES)[number];
@@ -193,4 +199,41 @@ export const savedViews = sqliteTable(
     ...timestamps,
   },
   (t) => [index("saved_views_scope_idx").on(t.scope)],
+);
+
+// Companies a person pinned to the sidebar. Pins belong to the signed-in email.
+export const companyPins = sqliteTable(
+  "company_pins",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    ownerEmail: text("owner_email").notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("company_pins_owner_company_idx").on(t.ownerEmail, t.companyId),
+  ],
+);
+
+// The last time a person opened a company page, for the palette's recents.
+export const companyViews = sqliteTable(
+  "company_views",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    ownerEmail: text("owner_email").notNull(),
+    viewedAt: text("viewed_at")
+      .notNull()
+      .default(sql`(current_timestamp)`),
+  },
+  (t) => [
+    uniqueIndex("company_views_owner_company_idx").on(
+      t.ownerEmail,
+      t.companyId,
+    ),
+  ],
 );

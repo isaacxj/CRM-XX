@@ -1,6 +1,8 @@
 "use server";
 
+import { listRecentCompanies } from "@/server/db/pins";
 import { searchAll } from "@/server/db/search";
+import { getCurrentUserEmail } from "@/server/user";
 
 export type PaletteHit = {
   key: string;
@@ -41,4 +43,16 @@ export async function searchPalette(q: string): Promise<PaletteHit[]> {
       href: `/companies/${d.companyId}`,
     })),
   ];
+}
+
+// The last few companies this person opened, shown before they type.
+export async function recentPalette(): Promise<PaletteHit[]> {
+  const recent = await listRecentCompanies((await getCurrentUserEmail()) ?? "");
+  return recent.map((c) => ({
+    key: `recent-${c.id}`,
+    kind: "company" as const,
+    label: c.name,
+    detail: c.business,
+    href: `/companies/${c.id}`,
+  }));
 }

@@ -13,6 +13,7 @@ import {
   MessageSquare,
   Phone,
   Plus,
+  Star,
   StickyNote,
   ArrowRightLeft,
 } from "lucide-react";
@@ -48,6 +49,12 @@ import {
   getCompanyLastActivity,
   updateCompanyFields,
 } from "@/server/db/companies";
+import {
+  isCompanyPinned,
+  recordCompanyView,
+  toggleCompanyPin,
+} from "@/server/db/pins";
+import { getCurrentUserEmail } from "@/server/user";
 import { deleteContact, listContactsForCompany } from "@/server/db/contacts";
 import {
   createDeal,
@@ -173,6 +180,9 @@ export default async function CompanyPage({
   const tasks = await listTasksForCompany(companyId);
   const timeline = await listTimelineForCompany(companyId);
   const lastActivityAt = await getCompanyLastActivity(companyId);
+  const viewer = (await getCurrentUserEmail()) ?? "";
+  await recordCompanyView(viewer, companyId);
+  const pinned = await isCompanyPinned(viewer, companyId);
   const stages = company.business === "statixx" ? STATIXX_STAGES : TRAZO_STAGES;
 
   const here = `/companies/${companyId}`;
@@ -189,6 +199,12 @@ export default async function CompanyPage({
     "use server";
     await archiveCompany(companyId);
     redirect(`/companies?archived=${companyId}`);
+  }
+
+  async function togglePin() {
+    "use server";
+    await toggleCompanyPin((await getCurrentUserEmail()) ?? "", companyId);
+    redirect(here);
   }
 
   async function removeContact(formData: FormData) {
@@ -383,6 +399,15 @@ export default async function CompanyPage({
             >
               Add contact
             </Link>
+            <form action={togglePin}>
+              <button type="submit" aria-pressed={pinned} className={link}>
+                <Star
+                  className={cn("size-4", pinned && "fill-current")}
+                  aria-hidden="true"
+                />
+                {pinned ? "Unpin" : "Pin to sidebar"}
+              </button>
+            </form>
             <ConfirmSubmit
               action={archive}
               trigger="Archive"
