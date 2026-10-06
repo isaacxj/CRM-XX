@@ -50,6 +50,13 @@
       "when": 1791242210428,
       "tag": "0006_omniscient_hobgoblin",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1791296730259,
+      "tag": "0007_naive_cerebro",
+      "breakpoints": true
     }
   ]
 }

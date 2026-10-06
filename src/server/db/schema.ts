@@ -177,3 +177,20 @@ export const dealEvents = sqliteTable(
   },
   (t) => [index("deal_events_deal_idx").on(t.dealId)],
 );
+
+export const SAVED_VIEW_SCOPES = ["companies"] as const;
+export type SavedViewScope = (typeof SAVED_VIEW_SCOPES)[number];
+
+// A named filter combination for a list page. `query` is the page's search
+// string (business, status, q, sort, dir) without a leading "?".
+export const savedViews = sqliteTable(
+  "saved_views",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    scope: text("scope", { enum: SAVED_VIEW_SCOPES }).notNull(),
+    name: text("name").notNull(),
+    query: text("query").notNull(),
+    ...timestamps,
+  },
+  (t) => [index("saved_views_scope_idx").on(t.scope)],
+);

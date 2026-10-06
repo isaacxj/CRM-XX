@@ -1,4 +1,14 @@
-import { and, asc, desc, eq, isNull, ne, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  ne,
+  sql,
+} from "drizzle-orm";
 
 import { likePattern, matches } from "./search";
 import { getDb } from "./index";
@@ -245,4 +255,62 @@ export async function getHomeCounts(business: Business) {
     pipelineCents: Number(openDeals?.cents ?? 0),
     openTaskCount: Number(openTasks?.count ?? 0),
   };
+}
+
+// D1 allows 100 bound parameters per statement; a list page shows 50 rows.
+export const BULK_MAX = 50;
+
+export async function bulkArchiveCompanies(ids: number[]) {
+  const db = getDb();
+  const rows = await db
+    .update(companies)
+    .set({
+      archivedAt: sql`(current_timestamp)`,
+      updatedAt: sql`(current_timestamp)`,
+    })
+    .where(and(inArray(companies.id, ids), isNull(companies.archivedAt)))
+    .returning({ id: companies.id });
+  return rows.map((r) => r.id);
+}
+
+export async function bulkRestoreCompanies(ids: number[]) {
+  const db = getDb();
+  await db
+    .update(companies)
+    .set({ archivedAt: null, updatedAt: sql`(current_timestamp)` })
+    .where(and(inArray(companies.id, ids), isNotNull(companies.archivedAt)));
+}
+
+export async function bulkSetCompanyStatus(
+  ids: number[],
+  status: CompanyStatus,
+) {
+  const db = getDb();
+  const rows = await db
+    .update(companies)
+    .set({ status, updatedAt: sql`(current_timestamp)` })
+    .where(and(inArray(companies.id, ids), isNull(companies.archivedAt)))
+    .returning({ id: companies.id });
+  return rows.length;
+}
+
+// Deal stages differ per business, so a company that has deals stays where
+// it is. Returns how many moved; the rest were skipped.
+export async function bulkSetCompanyBusiness(
+  ids: number[],
+  business: Business,
+) {
+  const db = getDb();
+  const rows = await db
+    .update(companies)
+    .set({ business, updatedAt: sql`(current_timestamp)` })
+    .where(
+      and(
+        inArray(companies.id, ids),
+        isNull(companies.archivedAt),
+        sql`not exists (select 1 from deals where company_id = ${companyId})`,
+      ),
+    )
+    .returning({ id: companies.id });
+  return rows.length;
 }
