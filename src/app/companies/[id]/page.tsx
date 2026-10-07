@@ -635,7 +635,7 @@ export default async function CompanyPage({
                           name="stage"
                           aria-label={`Stage for ${deal.title}`}
                           defaultValue={deal.stage}
-                          className="border-border-strong bg-surface-raised h-8 rounded-md border px-2 text-sm"
+                          className="border-control bg-surface-raised h-8 rounded-md border px-2 text-sm"
                         >
                           {stages.map((stage) => (
                             <option key={stage} value={stage}>
@@ -649,7 +649,7 @@ export default async function CompanyPage({
                           aria-label="Reason if lost"
                           defaultValue={deal.lostReason ?? ""}
                           placeholder="Reason if Lost"
-                          className="border-border-strong bg-surface-raised h-8 min-w-32 flex-1 rounded-md border px-2 text-sm"
+                          className="border-control bg-surface-raised h-8 min-w-32 flex-1 rounded-md border px-2 text-sm"
                         />
                         <button
                           type="submit"

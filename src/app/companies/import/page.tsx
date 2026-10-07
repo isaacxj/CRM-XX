@@ -175,7 +175,7 @@ export default function ImportCompaniesPage() {
                   const file = e.target.files?.[0];
                   if (file) void handleFile(file);
                 }}
-                className="file:border-border-strong file:bg-surface-raised file:hover:bg-surface-hover text-sm file:mr-3 file:min-h-8 file:rounded-md file:border file:px-3 file:text-sm max-md:file:min-h-(--tap-target)"
+                className="file:border-control file:bg-surface-raised file:hover:bg-surface-hover text-sm file:mr-3 file:min-h-8 file:rounded-md file:border file:px-3 file:text-sm max-md:file:min-h-(--tap-target)"
               />
             )}
           </Field>

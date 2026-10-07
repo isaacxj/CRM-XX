@@ -203,6 +203,24 @@ export default function DesignPage() {
       <h2 className="mt-8 mb-3 text-lg font-medium">UI kit</h2>
       <Kit />
 
+      <h2 className="mt-8 mb-3 text-lg font-medium">Contrast</h2>
+      <p className="text-muted-foreground mb-2 text-xs">
+        Text tokens are 4.5:1 or better on every surface. Form controls use the
+        control border, 3:1 against the page; hairlines are for dividers only.
+      </p>
+      <div className="flex flex-wrap items-center gap-3 text-xs">
+        <div className="border-control bg-surface-raised flex h-9 w-36 items-center rounded-md border px-3">
+          Control border
+        </div>
+        <div className="border-border bg-surface-raised flex h-9 w-36 items-center rounded-md border px-3">
+          Hairline
+        </div>
+        <Badge tone="danger">Danger</Badge>
+        <Badge tone="warning">Warning</Badge>
+        <Badge tone="success">Success</Badge>
+        <Badge tone="info">Info</Badge>
+      </div>
+
       <h2 className="mt-8 mb-3 text-lg font-medium">Type</h2>
       <div className="flex flex-col gap-1">
         {SIZES.map(({ cls, px }) => (

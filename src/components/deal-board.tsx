@@ -239,7 +239,7 @@ export function DealBoard({
                 name="reason"
                 required
                 autoFocus
-                className="border-border-strong bg-background h-9 rounded-md border px-3 max-md:h-(--tap-target)"
+                className="border-control bg-background h-9 rounded-md border px-3 max-md:h-(--tap-target)"
               />
             </label>
             <div className="flex justify-end gap-2">

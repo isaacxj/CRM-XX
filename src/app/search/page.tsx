@@ -136,7 +136,7 @@ export default async function SearchPage({
             id="business"
             name="business"
             defaultValue={business ?? ""}
-            className="border-border-strong bg-surface-raised h-9 rounded-md border px-3 text-sm"
+            className="border-control bg-surface-raised h-9 rounded-md border px-3 text-sm"
           >
             <option value="">All</option>
             {BUSINESSES.map((value) => (

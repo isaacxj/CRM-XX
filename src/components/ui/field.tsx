@@ -8,7 +8,7 @@ import { cn } from "@/lib/cn";
 export const FormErrorsContext = createContext<Record<string, string>>({});
 
 const controlCls =
-  "border-border-strong bg-surface-raised text-foreground placeholder:text-muted-foreground w-full rounded-md border px-3 text-sm aria-[invalid=true]:border-danger";
+  "border-control bg-surface-raised text-foreground placeholder:text-muted-foreground w-full rounded-md border px-3 text-sm aria-[invalid=true]:border-danger";
 
 export function Select({
   className,

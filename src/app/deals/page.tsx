@@ -332,7 +332,7 @@ export default async function DealsPage({
               id="panel-stage"
               name="stage"
               defaultValue={panelDeal.stage}
-              className="border-border-strong bg-surface-raised h-9 rounded-md border px-2 text-sm"
+              className="border-control bg-surface-raised h-9 rounded-md border px-2 text-sm"
             >
               {stages.map((s) => (
                 <option key={s} value={s}>

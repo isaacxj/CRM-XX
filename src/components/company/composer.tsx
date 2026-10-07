@@ -20,7 +20,7 @@ const TABS: { kind: Kind; label: string; icon: typeof Mail }[] = [
 ];
 
 const field =
-  "border-border-strong bg-surface-raised text-foreground h-9 w-full rounded-md border px-3 text-sm";
+  "border-control bg-surface-raised text-foreground h-9 w-full rounded-md border px-3 text-sm";
 
 export function Composer({
   action,
@@ -101,7 +101,7 @@ export function Composer({
         placeholder={
           kind === "note" ? "Write a note…" : "What happened? (optional)"
         }
-        className="border-border-strong bg-surface-raised text-foreground placeholder:text-muted-foreground w-full rounded-md border px-3 py-2 text-sm"
+        className="border-control bg-surface-raised text-foreground placeholder:text-muted-foreground w-full rounded-md border px-3 py-2 text-sm"
       />
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">

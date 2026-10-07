@@ -41,7 +41,7 @@ export function DateField(props: React.ComponentProps<"input">) {
               type="button"
               aria-pressed={value === iso}
               onClick={() => setValue(iso)}
-              className="border-border-strong hover:bg-surface-hover aria-pressed:bg-accent aria-pressed:text-accent-foreground rounded-md border px-2 py-1 text-xs"
+              className="border-control hover:bg-surface-hover aria-pressed:bg-accent aria-pressed:text-accent-foreground rounded-md border px-2 py-1 text-xs"
             >
               {p.label}
             </button>

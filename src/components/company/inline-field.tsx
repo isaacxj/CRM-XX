@@ -92,7 +92,7 @@ export function InlineField({
           aria-label={label}
           defaultValue={value}
           autoFocus
-          className="border-border-strong bg-surface-raised h-8 w-full rounded-md border px-2 text-sm"
+          className="border-control bg-surface-raised h-8 w-full rounded-md border px-2 text-sm"
         >
           {options.map((o) => (
             <option key={o.value} value={o.value}>

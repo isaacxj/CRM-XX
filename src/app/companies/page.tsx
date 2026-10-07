@@ -106,7 +106,7 @@ export default async function CompaniesPage({
   );
 
   const selectCls =
-    "border-border-strong bg-surface-raised text-foreground h-9 rounded-md border px-3 text-sm";
+    "border-control bg-surface-raised text-foreground h-9 rounded-md border px-3 text-sm";
   const importMessage =
     importedParam !== null
       ? `Imported ${importedParam} ${importedParam === 1 ? "company" : "companies"}` +
