@@ -19,8 +19,9 @@ import {
 import { Composer } from "@/components/company/composer";
 import { InlineField } from "@/components/company/inline-field";
 import { Avatar } from "@/components/kit/avatar";
-import { saveContactAction } from "@/app/form-actions";
+import { saveContactAction, saveDealAction } from "@/app/form-actions";
 import { ContactSheet } from "@/components/forms/contact-sheet";
+import { DealSheet } from "@/components/forms/deal-sheet";
 import { ToastOnMount, UndoToastOnMount } from "@/components/kit/toast";
 import { ConfirmSubmit } from "@/components/kit/confirm-dialog";
 import { PageHeader } from "@/components/kit/page-header";
@@ -46,7 +47,6 @@ import {
   type RemovedSnapshot,
 } from "@/server/db/restore";
 import {
-  createDeal,
   deleteDeal,
   listDealsForCompany,
   moveDealStage,
@@ -144,6 +144,7 @@ const DEAL_BILLING_LABEL: Record<DealBilling, string> = {
 const SAVED_MESSAGE: Record<string, string> = {
   company: "Company added.",
   contact: "Contact saved.",
+  deal: "Deal saved.",
   activity: "Activity logged.",
   followup: "Follow-up added.",
 };
@@ -198,39 +199,6 @@ export default async function CompanyPage({
     const snapshot = await snapshotContact(contactId);
     await deleteContact(contactId);
     redirect(removedHref(companyId, snapshot));
-  }
-
-  async function addDeal(formData: FormData) {
-    "use server";
-    const title = formData.get("title");
-    const amount = formData.get("amount");
-    const billing = formData.get("billing");
-    const closeDate = formData.get("closeDate");
-    const amountValue = typeof amount === "string" ? Number(amount) : NaN;
-
-    if (
-      typeof title !== "string" ||
-      title.trim().length === 0 ||
-      typeof billing !== "string" ||
-      !(DEAL_BILLING as readonly string[]).includes(billing) ||
-      !Number.isFinite(amountValue) ||
-      amountValue < 0
-    ) {
-      throw new Error(
-        "Deal needs a title, a valid amount, and a billing type.",
-      );
-    }
-
-    await createDeal(companyId, {
-      title: title.trim(),
-      amountCents: Math.round(amountValue * 100),
-      billing: billing as DealBilling,
-      closeDate:
-        typeof closeDate === "string" && closeDate.trim()
-          ? closeDate.trim()
-          : null,
-    });
-    redirect(`/companies/${companyId}`);
   }
 
   async function moveDeal(formData: FormData) {
@@ -390,6 +358,12 @@ export default async function CompanyPage({
       : undefined;
   const contactSheetOpen =
     contactParam === "new" || editingContact !== undefined;
+  const dealParam = typeof query.deal === "string" ? query.deal : "";
+  const editingDeal =
+    dealParam && dealParam !== "new"
+      ? deals.find((d) => d.id === Number(dealParam))
+      : undefined;
+  const dealSheetOpen = dealParam === "new" || editingDeal !== undefined;
   const removed = parseSnapshot(
     typeof query.removed === "string" ? query.removed : undefined,
   );
@@ -421,6 +395,20 @@ export default async function CompanyPage({
           closeHref={`/companies/${companyId}`}
           companyName={company.name}
           defaultValues={editingContact}
+        />
+      )}
+      {dealSheetOpen && (
+        <DealSheet
+          key={editingDeal?.id ?? "new"}
+          action={saveDealAction.bind(null, companyId, editingDeal?.id ?? null)}
+          closeHref={`/companies/${companyId}`}
+          companyName={company.name}
+          defaultBilling={company.business === "trazo" ? "monthly" : "one_time"}
+          billingOptions={DEAL_BILLING.map((value) => ({
+            value,
+            label: DEAL_BILLING_LABEL[value],
+          }))}
+          defaultValues={editingDeal}
         />
       )}
       <PageHeader
@@ -616,15 +604,27 @@ export default async function CompanyPage({
                               ` · closes ${formatDueDate(deal.closeDate)}`}
                           </p>
                         </div>
-                        <form action={removeDeal}>
-                          <input type="hidden" name="dealId" value={deal.id} />
-                          <button
-                            type="submit"
-                            className="text-danger inline-flex shrink-0 items-center hover:underline max-md:min-h-(--tap-target) max-md:px-2"
+                        <div className="flex shrink-0 items-center gap-3">
+                          <Link
+                            href={`/companies/${company.id}?deal=${deal.id}`}
+                            className="text-muted-foreground hover:text-foreground inline-flex items-center hover:underline max-md:min-h-(--tap-target) max-md:px-2"
                           >
-                            Remove
-                          </button>
-                        </form>
+                            Edit
+                          </Link>
+                          <form action={removeDeal}>
+                            <input
+                              type="hidden"
+                              name="dealId"
+                              value={deal.id}
+                            />
+                            <button
+                              type="submit"
+                              className="text-danger inline-flex shrink-0 items-center hover:underline max-md:min-h-(--tap-target) max-md:px-2"
+                            >
+                              Remove
+                            </button>
+                          </form>
+                        </div>
                       </div>
                       <form
                         action={moveDeal}
@@ -667,65 +667,12 @@ export default async function CompanyPage({
                   ))}
                 </ul>
               )}
-              <form
-                action={addDeal}
-                className="border-border grid grid-cols-2 gap-2 border-t pt-3 text-xs"
+              <Link
+                href={`/companies/${company.id}?deal=new`}
+                className={cn(buttonVariants({ variant: "secondary" }))}
               >
-                <label className="col-span-2 flex flex-col gap-1">
-                  <span className="text-muted-foreground">Deal</span>
-                  <input
-                    name="title"
-                    required
-                    placeholder="Website redesign"
-                    className="border-border-strong bg-surface-raised h-9 rounded-md border px-3 text-sm"
-                  />
-                </label>
-                <label className="flex flex-col gap-1">
-                  <span className="text-muted-foreground">Amount</span>
-                  <input
-                    name="amount"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    required
-                    placeholder="5000"
-                    className="border-border-strong bg-surface-raised h-9 rounded-md border px-3 text-sm"
-                  />
-                </label>
-                <label className="flex flex-col gap-1">
-                  <span className="text-muted-foreground">Billing</span>
-                  <select
-                    name="billing"
-                    defaultValue={
-                      company.business === "trazo" ? "monthly" : "one_time"
-                    }
-                    className="border-border-strong bg-surface-raised h-9 rounded-md border px-2 text-sm"
-                  >
-                    {DEAL_BILLING.map((value) => (
-                      <option key={value} value={value}>
-                        {DEAL_BILLING_LABEL[value]}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="flex flex-col gap-1">
-                  <span className="text-muted-foreground">Expected close</span>
-                  <input
-                    name="closeDate"
-                    type="date"
-                    className="border-border-strong bg-surface-raised h-9 rounded-md border px-2 text-sm"
-                  />
-                </label>
-                <button
-                  type="submit"
-                  className={cn(
-                    buttonVariants({ variant: "secondary" }),
-                    "self-end",
-                  )}
-                >
-                  Add deal
-                </button>
-              </form>
+                Add deal
+              </Link>
             </Card>
 
             <Card id="followups" className="scroll-mt-20">

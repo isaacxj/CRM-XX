@@ -100,6 +100,11 @@ export async function createDeal(companyId: number, input: DealInput) {
   return deal;
 }
 
+export async function updateDeal(id: number, input: DealInput) {
+  const db = getDb();
+  await db.update(deals).set(input).where(eq(deals.id, id));
+}
+
 export async function moveDealStage(
   id: number,
   stage: DealStage,

@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   ACTIVITY_TYPES,
   BUSINESSES,
+  DEAL_BILLING,
   COMPANY_STATUSES,
 } from "@/server/db/schema";
 
@@ -51,4 +52,19 @@ export const quickFollowUpSchema = z.object({
   companyId,
   title: z.string().trim().min(1, "Describe what needs to happen next."),
   dueDate: optional,
+});
+
+export const dealFormSchema = z.object({
+  title: z.string().trim().min(1, "Enter a name for the deal."),
+  amount: z
+    .string()
+    .trim()
+    .min(1, "Enter the deal amount, like 5000.")
+    .transform((v) => Number(v.replace(/[$,\s]/g, "")))
+    .refine(
+      (v) => Number.isFinite(v) && v >= 0,
+      "Enter an amount of 0 or more.",
+    ),
+  billing: z.enum(DEAL_BILLING, { error: "Choose one-time or monthly." }),
+  closeDate: optional,
 });

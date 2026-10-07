@@ -5,10 +5,12 @@ import { redirect } from "next/navigation";
 import { createActivity } from "@/server/db/activities";
 import { createCompany, listCompanies } from "@/server/db/companies";
 import { createContact, updateContact } from "@/server/db/contacts";
+import { createDeal, updateDeal } from "@/server/db/deals";
 import { createTask } from "@/server/db/tasks";
 import {
   companyFormSchema,
   contactFormSchema,
+  dealFormSchema,
   quickActivitySchema,
   quickFollowUpSchema,
 } from "@/lib/form-schemas";
@@ -35,6 +37,26 @@ export async function saveContactAction(
   if (contactId) await updateContact(contactId, parsed.data);
   else await createContact(companyId, parsed.data);
   redirect(`/companies/${companyId}?saved=contact`);
+}
+
+export async function saveDealAction(
+  companyId: number,
+  dealId: number | null,
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const parsed = dealFormSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return zodErrors(parsed.error);
+  const { title, amount, billing, closeDate } = parsed.data;
+  const input = {
+    title,
+    amountCents: Math.round(amount * 100),
+    billing,
+    closeDate,
+  };
+  if (dealId) await updateDeal(dealId, input);
+  else await createDeal(companyId, input);
+  redirect(`/companies/${companyId}?saved=deal`);
 }
 
 export async function logActivityAction(
