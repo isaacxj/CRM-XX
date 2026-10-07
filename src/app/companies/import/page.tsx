@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/field";
+import { Field, FormErrorsContext, Select } from "@/components/ui/field";
+import type { FormState } from "@/lib/form-state";
+import type { ImportPreview } from "@/server/db/import";
 import { PageHeader } from "@/components/kit/page-header";
 import { parseCsv } from "@/lib/csv";
 import {
@@ -12,7 +14,7 @@ import {
   type ImportMapping,
 } from "@/lib/import";
 import { BUSINESSES, type Business } from "@/server/db/schema";
-import { runImport } from "./actions";
+import { previewImportAction, runImport } from "./actions";
 
 const BUSINESS_LABEL: Record<Business, string> = {
   statixx: "Statixx",
@@ -62,7 +64,30 @@ export default function ImportCompaniesPage() {
   const [rows, setRows] = useState<string[][]>([]);
   const [columnFields, setColumnFields] = useState<(ImportField | "")[]>([]);
   const [error, setError] = useState("");
+  const [formState, setFormState] = useState<FormState>(null);
+  const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [isPending, startTransition] = useTransition();
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    fileRef.current?.focus();
+  }, []);
+
+  // Ask the server what this mapping would do (new, blank, already there).
+  useEffect(() => {
+    if (!columnFields.includes("companyName")) return;
+    let stale = false;
+    void previewImportAction({
+      business,
+      rows,
+      mapping: buildMapping(columnFields),
+    }).then((result) => {
+      if (!stale) setPreview(result);
+    });
+    return () => {
+      stale = true;
+    };
+  }, [business, rows, columnFields]);
 
   async function handleFile(file: File) {
     setError("");
@@ -89,51 +114,79 @@ export default function ImportCompaniesPage() {
 
   function handleImport() {
     setError("");
+    setFormState(null);
     const mapping = buildMapping(columnFields);
     startTransition(async () => {
-      await runImport(business, rows, mapping);
+      const result = await runImport({ business, rows, mapping });
+      if (result) setFormState(result);
     });
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-6 p-8">
+    <div
+      className="flex flex-1 flex-col gap-6 p-8 max-md:p-4"
+      onKeyDown={(e) => {
+        if (
+          e.key === "Enter" &&
+          (e.metaKey || e.ctrlKey) &&
+          hasCompanyName &&
+          !isPending &&
+          rows.length > 0
+        ) {
+          e.preventDefault();
+          handleImport();
+        }
+      }}
+    >
       <PageHeader
         title="Import companies"
         description="Upload a CSV export from a spreadsheet, match its columns to fields below, then preview and import. Companies that already exist for the selected business (matched by name) are skipped."
       />
 
-      <div className="flex max-w-xs flex-col gap-1">
-        <label htmlFor="business" className="text-sm font-medium">
-          Business
-        </label>
-        <Select
-          id="business"
-          value={business}
-          onChange={(e) => setBusiness(e.target.value as Business)}
-        >
-          {BUSINESSES.map((value) => (
-            <option key={value} value={value}>
-              {BUSINESS_LABEL[value]}
-            </option>
-          ))}
-        </Select>
-      </div>
-
-      <div className="flex max-w-xs flex-col gap-1">
-        <label htmlFor="file" className="text-sm font-medium">
-          CSV file
-        </label>
-        <input
-          id="file"
-          type="file"
-          accept=".csv,text/csv"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) void handleFile(file);
-          }}
-          className="file:border-border-strong file:bg-surface-raised file:hover:bg-surface-hover text-sm file:mr-3 file:min-h-8 file:rounded-md file:border file:px-3 file:text-sm max-md:file:min-h-(--tap-target)"
-        />
-      </div>
+      <FormErrorsContext.Provider value={formState?.errors ?? {}}>
+        <div className="flex max-w-xs flex-col gap-4">
+          <Field label="Business" name="business">
+            {(p) => (
+              <Select
+                {...p}
+                value={business}
+                onChange={(e) => setBusiness(e.target.value as Business)}
+              >
+                {BUSINESSES.map((value) => (
+                  <option key={value} value={value}>
+                    {BUSINESS_LABEL[value]}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
+          <Field
+            label="CSV file"
+            name="rows"
+            hint="A spreadsheet export with a header row."
+          >
+            {(p) => (
+              <input
+                {...p}
+                ref={fileRef}
+                type="file"
+                accept=".csv,text/csv"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void handleFile(file);
+                }}
+                className="file:border-border-strong file:bg-surface-raised file:hover:bg-surface-hover text-sm file:mr-3 file:min-h-8 file:rounded-md file:border file:px-3 file:text-sm max-md:file:min-h-(--tap-target)"
+              />
+            )}
+          </Field>
+        </div>
+        {formState?.message && (
+          <p role="alert" className="text-danger text-sm">
+            {formState.message}{" "}
+            {formState.errors.mapping ?? formState.errors.business}
+          </p>
+        )}
+      </FormErrorsContext.Provider>
 
       {error && (
         <p role="alert" className="text-danger text-sm">
@@ -189,6 +242,18 @@ export default function ImportCompaniesPage() {
             <h2 className="text-lg font-medium">
               Preview ({rows.length} row{rows.length === 1 ? "" : "s"})
             </h2>
+            {preview && hasCompanyName && (
+              <p className="text-sm" aria-live="polite">
+                <span className="num font-medium">{preview.willImport}</span>{" "}
+                new {preview.willImport === 1 ? "company" : "companies"} will be
+                added.{" "}
+                <span className="text-muted-foreground">
+                  {preview.duplicates} already exist or repeat in the file and{" "}
+                  {preview.blankName} have no company name, so they&apos;ll be
+                  skipped.
+                </span>
+              </p>
+            )}
             <div className="max-w-3xl overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead>
@@ -231,8 +296,13 @@ export default function ImportCompaniesPage() {
           >
             {isPending
               ? "Importing…"
-              : `Import ${rows.length} row${rows.length === 1 ? "" : "s"}`}
+              : preview && hasCompanyName
+                ? `Import ${preview.willImport} ${preview.willImport === 1 ? "company" : "companies"}`
+                : `Import ${rows.length} row${rows.length === 1 ? "" : "s"}`}
           </Button>
+          <p className="text-muted-foreground -mt-4 hidden text-xs md:block">
+            ⌘Enter to import
+          </p>
         </>
       )}
     </div>
