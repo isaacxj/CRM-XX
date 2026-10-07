@@ -19,8 +19,13 @@ import {
 import { Composer } from "@/components/company/composer";
 import { InlineField } from "@/components/company/inline-field";
 import { Avatar } from "@/components/kit/avatar";
-import { saveContactAction, saveDealAction } from "@/app/form-actions";
+import {
+  saveContactAction,
+  saveDealAction,
+  saveTaskAction,
+} from "@/app/form-actions";
 import { ContactSheet } from "@/components/forms/contact-sheet";
+import { TaskSheet } from "@/components/forms/task-sheet";
 import { DealSheet } from "@/components/forms/deal-sheet";
 import { ToastOnMount, UndoToastOnMount } from "@/components/kit/toast";
 import { ConfirmSubmit } from "@/components/kit/confirm-dialog";
@@ -65,7 +70,6 @@ import {
 import { listTimelineForCompany } from "@/server/db/timeline";
 import {
   completeTask,
-  createTask,
   deleteTask,
   listTasksForCompany,
   reopenTask,
@@ -187,6 +191,10 @@ export default async function CompanyPage({
   const lastActivityAt = await getCompanyLastActivity(companyId);
   const stages = company.business === "statixx" ? STATIXX_STAGES : TRAZO_STAGES;
 
+  const removed = parseSnapshot(
+    typeof query.removed === "string" ? query.removed : undefined,
+  );
+
   async function archive() {
     "use server";
     await archiveCompany(companyId);
@@ -290,21 +298,6 @@ export default async function CompanyPage({
     redirect(removedHref(companyId, snapshot));
   }
 
-  async function addTask(formData: FormData) {
-    "use server";
-    const title = formData.get("title");
-    const dueDate = formData.get("dueDate");
-    if (typeof title !== "string" || title.trim().length === 0) {
-      throw new Error("Follow-up needs a title.");
-    }
-    await createTask(companyId, {
-      title: title.trim(),
-      dueDate:
-        typeof dueDate === "string" && dueDate.trim() ? dueDate.trim() : null,
-    });
-    redirect(`/companies/${companyId}`);
-  }
-
   async function toggleTask(formData: FormData) {
     "use server";
     const taskId = Number(formData.get("taskId"));
@@ -364,9 +357,6 @@ export default async function CompanyPage({
       ? deals.find((d) => d.id === Number(dealParam))
       : undefined;
   const dealSheetOpen = dealParam === "new" || editingDeal !== undefined;
-  const removed = parseSnapshot(
-    typeof query.removed === "string" ? query.removed : undefined,
-  );
   const savedMessage =
     typeof query.saved === "string" ? SAVED_MESSAGE[query.saved] : undefined;
 
@@ -397,6 +387,13 @@ export default async function CompanyPage({
           defaultValues={editingContact}
         />
       )}
+      {query.followup === "new" && (
+        <TaskSheet
+          action={saveTaskAction.bind(null, companyId)}
+          closeHref={`/companies/${companyId}`}
+          companyName={company.name}
+        />
+      )}
       {dealSheetOpen && (
         <DealSheet
           key={editingDeal?.id ?? "new"}
@@ -424,9 +421,12 @@ export default async function CompanyPage({
               <Plus className="size-4" aria-hidden="true" />
               Log activity
             </a>
-            <a href="#followups" className={link}>
+            <Link
+              href={`/companies/${company.id}?followup=new`}
+              className={link}
+            >
               Add follow-up
-            </a>
+            </Link>
             <Link
               href={`/companies/${company.id}?contact=new`}
               className={link}
@@ -749,36 +749,12 @@ export default async function CompanyPage({
                   ))}
                 </ul>
               )}
-              <form
-                action={addTask}
-                className="border-border flex flex-wrap items-end gap-2 border-t pt-3 text-xs"
+              <Link
+                href={`/companies/${company.id}?followup=new`}
+                className={cn(buttonVariants({ variant: "secondary" }))}
               >
-                <label className="flex min-w-40 flex-1 flex-col gap-1">
-                  <span className="text-muted-foreground">
-                    What&apos;s next
-                  </span>
-                  <input
-                    name="title"
-                    required
-                    placeholder="Send proposal"
-                    className="border-border-strong bg-surface-raised h-9 rounded-md border px-3 text-sm"
-                  />
-                </label>
-                <label className="flex flex-col gap-1">
-                  <span className="text-muted-foreground">Due</span>
-                  <input
-                    name="dueDate"
-                    type="date"
-                    className="border-border-strong bg-surface-raised h-9 rounded-md border px-2 text-sm"
-                  />
-                </label>
-                <button
-                  type="submit"
-                  className={cn(buttonVariants({ variant: "secondary" }))}
-                >
-                  Add follow-up
-                </button>
-              </form>
+                Add follow-up
+              </Link>
             </Card>
           </div>
         }

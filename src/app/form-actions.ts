@@ -13,6 +13,7 @@ import {
   dealFormSchema,
   quickActivitySchema,
   quickFollowUpSchema,
+  taskFormSchema,
 } from "@/lib/form-schemas";
 import { zodErrors, type FormState } from "@/lib/form-state";
 
@@ -102,4 +103,27 @@ export async function addFollowUpAction(
 export async function listPickerCompanies() {
   const rows = await listCompanies({});
   return rows.map((c) => ({ id: c.id, name: c.name, business: c.business }));
+}
+
+// Follow-up sheet on the Tasks page (company optional) and on a company page
+// (`fixedCompanyId` set). Lands where the new task will show up.
+export async function saveTaskAction(
+  fixedCompanyId: number | null,
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const parsed = taskFormSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return zodErrors(parsed.error);
+  const { title, dueDate } = parsed.data;
+  const companyId = fixedCompanyId ?? parsed.data.companyId;
+  await createTask(companyId, { title, dueDate });
+  if (fixedCompanyId) redirect(`/companies/${fixedCompanyId}?saved=followup`);
+  const today = new Date().toISOString().slice(0, 10);
+  const tab =
+    dueDate && dueDate < today
+      ? "overdue"
+      : dueDate === today
+        ? "today"
+        : "upcoming";
+  redirect(`/tasks?tab=${tab}&saved=followup`);
 }

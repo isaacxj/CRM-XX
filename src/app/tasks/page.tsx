@@ -3,11 +3,13 @@ import { redirect } from "next/navigation";
 
 import { BusinessBadge } from "@/components/kit/status-badges";
 import { EmptyState } from "@/components/kit/data-table";
+import { saveTaskAction } from "@/app/form-actions";
+import { TaskSheet } from "@/components/forms/task-sheet";
+import { ToastOnMount } from "@/components/kit/toast";
 import { PageHeader } from "@/components/kit/page-header";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { groupTasksByDue } from "@/lib/task-groups";
 import { WhoFilter, parseWho, type Who } from "@/components/who-filter";
 import { ownerLabel } from "@/lib/activity";
@@ -19,7 +21,6 @@ import {
   TASK_TABS,
   completeTask,
   countTasksByTab,
-  createTask,
   deleteTask,
   listTasks,
   reopenTask,
@@ -49,7 +50,7 @@ const SNOOZE_OPTIONS = [
 const EMPTY_COPY: Record<TaskTab, string> = {
   overdue: "Nothing overdue. Nice.",
   today: "Nothing due today.",
-  upcoming: "No upcoming follow-ups. Add one below.",
+  upcoming: "No upcoming follow-ups. Use Add task to create one.",
   waiting:
     "No emails waiting on a reply. Log a sent email on a company and set a reminder.",
   done: "No completed follow-ups yet.",
@@ -96,6 +97,7 @@ export default async function TasksPage({
     countTasksByTab(business, owner),
     listCompanies({}),
   ]);
+  const savedFollowUp = params.saved === "followup";
   const today = new Date().toISOString().slice(0, 10);
 
   async function toggle(formData: FormData) {
@@ -136,30 +138,6 @@ export default async function TasksPage({
     redirect(here);
   }
 
-  async function add(formData: FormData) {
-    "use server";
-    const title = formData.get("title");
-    const dueDate = formData.get("dueDate");
-    const companyRaw = formData.get("companyId");
-    if (typeof title !== "string" || title.trim().length === 0) {
-      throw new Error("Describe the follow-up before adding it.");
-    }
-    const companyId =
-      typeof companyRaw === "string" && companyRaw !== ""
-        ? Number(companyRaw)
-        : null;
-    if (companyId !== null && !Number.isInteger(companyId)) {
-      throw new Error("Pick a company from the list, or leave it blank.");
-    }
-    const due =
-      typeof dueDate === "string" && dueDate.trim() ? dueDate.trim() : null;
-    await createTask(companyId, { title: title.trim(), dueDate: due });
-    // Land on the tab where the new task will show up.
-    const landing: TaskTab =
-      due && due < today ? "overdue" : due === today ? "today" : "upcoming";
-    redirect(tasksHref(landing, business, who));
-  }
-
   const groups =
     tab === "done"
       ? [{ key: "done", label: "Completed", tasks }]
@@ -174,9 +152,29 @@ export default async function TasksPage({
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6 pb-24 md:p-8 md:pb-8">
+      {savedFollowUp && <ToastOnMount message="Follow-up added." />}
+      {params.new === "1" && (
+        <TaskSheet
+          action={saveTaskAction.bind(null, null)}
+          closeHref={here}
+          companies={companies.map((c) => ({
+            id: c.id,
+            name: c.name,
+            business: c.business,
+          }))}
+        />
+      )}
       <PageHeader
         title="Tasks"
         description="Every follow-up across your companies, grouped by when it's due, plus tasks that don't belong to one."
+        actions={
+          <Link
+            href={`${here}&new=1`}
+            className={buttonVariants({ variant: "secondary" })}
+          >
+            Add task
+          </Link>
+        }
       />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -362,61 +360,6 @@ export default async function TasksPage({
           ))}
         </div>
       )}
-
-      <form action={add}>
-        <Card className="flex flex-col gap-3">
-          <h2 className="text-lg font-semibold">Add a task</h2>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div className="flex flex-col gap-1 sm:col-span-3">
-              <label htmlFor="task-title" className="text-sm font-medium">
-                What needs doing
-              </label>
-              <Input
-                id="task-title"
-                name="title"
-                type="text"
-                required
-                placeholder="Renew domain, send invoice, follow up…"
-              />
-            </div>
-            <div className="flex flex-col gap-1 sm:col-span-2">
-              <label htmlFor="task-company" className="text-sm font-medium">
-                Company (optional)
-              </label>
-              <select
-                id="task-company"
-                name="companyId"
-                defaultValue=""
-                className="border-border-strong bg-surface-raised h-9 rounded-md border px-3 text-sm"
-              >
-                <option value="">No company</option>
-                {BUSINESSES.map((b) => {
-                  const inBusiness = companies.filter((c) => c.business === b);
-                  if (inBusiness.length === 0) return null;
-                  return (
-                    <optgroup key={b} label={BUSINESS_LABEL[b]}>
-                      {inBusiness.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </optgroup>
-                  );
-                })}
-              </select>
-            </div>
-            <div className="flex flex-col gap-1">
-              <label htmlFor="task-due" className="text-sm font-medium">
-                Due
-              </label>
-              <Input id="task-due" name="dueDate" type="date" />
-            </div>
-          </div>
-          <Button type="submit" className="self-start">
-            Add task
-          </Button>
-        </Card>
-      </form>
     </div>
   );
 }

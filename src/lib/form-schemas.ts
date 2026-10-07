@@ -54,6 +54,22 @@ export const quickFollowUpSchema = z.object({
   dueDate: optional,
 });
 
+// A follow-up from the Tasks page or a company page. The company is optional
+// there: a task can be standalone.
+export const taskFormSchema = z.object({
+  companyId: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v) => (v ? Number(v) : null))
+    .refine(
+      (v) => v === null || (Number.isInteger(v) && v > 0),
+      "Choose a company from the list, or leave it blank.",
+    ),
+  title: z.string().trim().min(1, "Describe what needs to happen next."),
+  dueDate: optional,
+});
+
 export const dealFormSchema = z.object({
   title: z.string().trim().min(1, "Enter a name for the deal."),
   amount: z
