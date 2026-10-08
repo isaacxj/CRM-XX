@@ -21,7 +21,10 @@ const NAV_ITEMS = [
 ];
 
 // Desktop sidebar only; the phone nav is already full.
-const SIDEBAR_ONLY = [{ href: "/digest", label: "Morning digest" }];
+const SIDEBAR_ONLY = [
+  { href: "/revenue", label: "Revenue" },
+  { href: "/digest", label: "Morning digest" },
+];
 
 function isTypingTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false;
@@ -64,7 +67,8 @@ function useSearchShortcut() {
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const isDeals = pathname.startsWith("/deals");
+  const isDeals =
+    pathname.startsWith("/deals") || pathname.startsWith("/revenue");
   const activeBusiness =
     searchParams.get("business") ?? (isDeals ? "statixx" : "all");
   const businessOptions = isDeals
@@ -111,7 +115,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
                 key={option.value}
                 href={
                   isDeals
-                    ? `/deals?business=${option.value}`
+                    ? `${pathname.startsWith("/revenue") ? "/revenue" : "/deals"}?business=${option.value}`
                     : option.value === "all"
                       ? "/companies"
                       : `/companies?business=${option.value}`
