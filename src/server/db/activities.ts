@@ -293,3 +293,84 @@ export async function listActivityLog(filters: ActivityLogFilters) {
     ? query.limit(filters.limit).offset(filters.offset ?? 0)
     : query;
 }
+
+export type MeetingFilters = {
+  // Upcoming includes meetings still in progress.
+  when: "upcoming" | "past";
+  business?: Business;
+  owner?: string | null;
+  q?: string;
+  limit?: number;
+  offset?: number;
+};
+
+function meetingCondition(filters: MeetingFilters, now: string) {
+  const term = filters.q?.trim();
+  const pattern = term ? likePattern(term) : null;
+  return and(
+    eq(activities.type, "meeting"),
+    isNull(companies.archivedAt),
+    filters.when === "upcoming"
+      ? or(gte(activities.occurredAt, now), gte(activities.endsAt, now))
+      : and(
+          lt(activities.occurredAt, now),
+          or(isNull(activities.endsAt), lt(activities.endsAt, now)),
+        ),
+    filters.business ? eq(companies.business, filters.business) : undefined,
+    filters.owner ? eq(activities.ownerEmail, filters.owner) : undefined,
+    pattern
+      ? or(
+          matches(activities.subject, pattern),
+          matches(activities.body, pattern),
+          matches(companies.name, pattern),
+          matches(contacts.name, pattern),
+        )
+      : undefined,
+  );
+}
+
+function nowText() {
+  return new Date().toISOString().slice(0, 19).replace("T", " ");
+}
+
+export async function countMeetings(filters: MeetingFilters) {
+  const db = getDb();
+  const [row] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(activities)
+    .innerJoin(companies, eq(activities.companyId, companies.id))
+    .leftJoin(contacts, eq(activities.contactId, contacts.id))
+    .where(meetingCondition(filters, nowText()));
+  return Number(row?.count ?? 0);
+}
+
+// Upcoming: soonest first. Past: most recent first.
+export async function listMeetings(
+  filters: MeetingFilters,
+): Promise<UpcomingMeeting[]> {
+  const db = getDb();
+  const upcoming = filters.when === "upcoming";
+  const query = db
+    .select({
+      id: activities.id,
+      subject: activities.subject,
+      occurredAt: activities.occurredAt,
+      endsAt: activities.endsAt,
+      ownerEmail: activities.ownerEmail,
+      companyId: activities.companyId,
+      companyName: companies.name,
+      business: companies.business,
+      contactName: contacts.name,
+    })
+    .from(activities)
+    .innerJoin(companies, eq(activities.companyId, companies.id))
+    .leftJoin(contacts, eq(activities.contactId, contacts.id))
+    .where(meetingCondition(filters, nowText()))
+    .orderBy(
+      upcoming ? asc(activities.occurredAt) : desc(activities.occurredAt),
+      upcoming ? asc(activities.id) : desc(activities.id),
+    );
+  return filters.limit !== undefined
+    ? query.limit(filters.limit).offset(filters.offset ?? 0)
+    : query;
+}

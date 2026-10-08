@@ -50,6 +50,12 @@ export const HELP_ENTRIES: HelpEntry[] = [
     body: "Every note, email, call, and meeting across all companies, newest first. Filter by type, business, or owner, and search subjects, details, and names.",
   },
   {
+    id: "meetings",
+    title: "Meetings",
+    href: "/meetings",
+    body: "Every meeting logged on a company, with tabs for upcoming and past. Filter by business or owner, and search subjects, details, and names.",
+  },
+  {
     id: "tasks",
     title: "Tasks",
     href: "/tasks",
