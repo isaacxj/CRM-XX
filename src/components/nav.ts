@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  Activity,
   Building2,
   CheckSquare,
   Download,
@@ -23,6 +24,7 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { href: "/", label: "Home", Icon: Home },
       { href: "/tasks", label: "Tasks", Icon: CheckSquare },
       { href: "/deals", label: "Deals", Icon: Handshake },
+      { href: "/activity", label: "Activity", Icon: Activity },
     ],
   },
   {

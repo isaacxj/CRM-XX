@@ -3,6 +3,7 @@ import { and, asc, desc, eq, gte, isNull, lt, or, sql } from "drizzle-orm";
 import { getCurrentUserEmail } from "@/server/user";
 
 import { getDb } from "./index";
+import { likePattern, matches } from "./search";
 import {
   activities,
   companies,
@@ -208,4 +209,87 @@ export async function listUpcomingMeetings(
       ),
     )
     .orderBy(asc(activities.occurredAt), asc(activities.id));
+}
+
+export type ActivityLogFilters = {
+  type?: ActivityType;
+  business?: Business;
+  // Only entries owned by this email.
+  owner?: string | null;
+  q?: string;
+  limit?: number;
+  offset?: number;
+};
+
+// Search covers subject, details, company and contact names.
+function activityLogCondition(filters: ActivityLogFilters) {
+  const term = filters.q?.trim();
+  const pattern = term ? likePattern(term) : null;
+  return and(
+    filters.type ? eq(activities.type, filters.type) : undefined,
+    filters.business ? eq(companies.business, filters.business) : undefined,
+    filters.owner ? eq(activities.ownerEmail, filters.owner) : undefined,
+    pattern
+      ? or(
+          matches(activities.subject, pattern),
+          matches(activities.body, pattern),
+          matches(companies.name, pattern),
+          matches(contacts.name, pattern),
+        )
+      : undefined,
+  );
+}
+
+export async function countActivityLog(filters: ActivityLogFilters) {
+  const db = getDb();
+  const [row] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(activities)
+    .innerJoin(companies, eq(activities.companyId, companies.id))
+    .leftJoin(contacts, eq(activities.contactId, contacts.id))
+    .where(activityLogCondition(filters));
+  return Number(row?.count ?? 0);
+}
+
+// Counts per type under the other filters, for the type tabs.
+export async function countActivityLogByType(
+  filters: Omit<ActivityLogFilters, "type">,
+) {
+  const db = getDb();
+  const rows = await db
+    .select({ type: activities.type, count: sql<number>`count(*)` })
+    .from(activities)
+    .innerJoin(companies, eq(activities.companyId, companies.id))
+    .leftJoin(contacts, eq(activities.contactId, contacts.id))
+    .where(activityLogCondition(filters))
+    .groupBy(activities.type);
+  return Object.fromEntries(
+    rows.map((r) => [r.type, Number(r.count)]),
+  ) as Partial<Record<ActivityType, number>>;
+}
+
+// Newest first across every company.
+export async function listActivityLog(filters: ActivityLogFilters) {
+  const db = getDb();
+  const query = db
+    .select({
+      id: activities.id,
+      type: activities.type,
+      subject: activities.subject,
+      body: activities.body,
+      occurredAt: activities.occurredAt,
+      ownerEmail: activities.ownerEmail,
+      companyId: activities.companyId,
+      companyName: companies.name,
+      business: companies.business,
+      contactName: contacts.name,
+    })
+    .from(activities)
+    .innerJoin(companies, eq(activities.companyId, companies.id))
+    .leftJoin(contacts, eq(activities.contactId, contacts.id))
+    .where(activityLogCondition(filters))
+    .orderBy(desc(activities.occurredAt), desc(activities.id));
+  return filters.limit !== undefined
+    ? query.limit(filters.limit).offset(filters.offset ?? 0)
+    : query;
 }

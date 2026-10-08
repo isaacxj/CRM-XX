@@ -44,6 +44,12 @@ export const HELP_ENTRIES: HelpEntry[] = [
     body: "People at each company. Add them from the company page or import them from a CSV, then find them here by name or email.",
   },
   {
+    id: "activity",
+    title: "Activity",
+    href: "/activity",
+    body: "Every note, email, call, and meeting across all companies, newest first. Filter by type, business, or owner, and search subjects, details, and names.",
+  },
+  {
     id: "tasks",
     title: "Tasks",
     href: "/tasks",
