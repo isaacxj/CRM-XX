@@ -1,8 +1,8 @@
-import { asc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, or, sql } from "drizzle-orm";
 
 import { likePattern, matches } from "./search";
 import { getDb } from "./index";
-import { companies, contacts } from "./schema";
+import { companies, contacts, type Business } from "./schema";
 
 export async function listContactsForCompany(companyId: number) {
   const db = getDb();
@@ -13,14 +13,44 @@ export async function listContactsForCompany(companyId: number) {
     .orderBy(asc(contacts.name));
 }
 
+export type ContactSort = "name" | "company" | "title";
+
 export type ContactFilters = {
   q?: string;
+  business?: Business;
+  sort?: ContactSort;
+  dir?: "asc" | "desc";
   limit?: number;
   offset?: number;
 };
 
+// Search covers name, email, title and company name, so a pasted email or a
+// company name finds the person.
 function contactCondition(filters: ContactFilters) {
-  return filters.q ? matches(contacts.name, likePattern(filters.q)) : undefined;
+  const term = filters.q?.trim();
+  const pattern = term ? likePattern(term) : null;
+  return and(
+    filters.business ? eq(companies.business, filters.business) : undefined,
+    pattern
+      ? or(
+          matches(contacts.name, pattern),
+          matches(contacts.email, pattern),
+          matches(contacts.title, pattern),
+          matches(companies.name, pattern),
+        )
+      : undefined,
+  );
+}
+
+function contactOrder(filters: ContactFilters) {
+  const column =
+    filters.sort === "company"
+      ? companies.name
+      : filters.sort === "title"
+        ? contacts.title
+        : contacts.name;
+  const order = filters.dir === "desc" ? desc : asc;
+  return [order(sql`lower(coalesce(${column}, ''))`), asc(contacts.id)];
 }
 
 export async function countContacts(filters: ContactFilters) {
@@ -28,6 +58,7 @@ export async function countContacts(filters: ContactFilters) {
   const [row] = await db
     .select({ count: sql<number>`count(*)` })
     .from(contacts)
+    .innerJoin(companies, eq(contacts.companyId, companies.id))
     .where(contactCondition(filters));
   return Number(row?.count ?? 0);
 }
@@ -49,7 +80,7 @@ export async function listContacts(filters: ContactFilters) {
     .from(contacts)
     .innerJoin(companies, eq(contacts.companyId, companies.id))
     .where(contactCondition(filters))
-    .orderBy(asc(contacts.name), asc(contacts.id));
+    .orderBy(...contactOrder(filters));
 
   return filters.limit !== undefined
     ? query.limit(filters.limit).offset(filters.offset ?? 0)
