@@ -45,3 +45,21 @@ export function parseCsv(text: string): string[][] {
 
   return rows;
 }
+
+/** Serializes rows to CSV text, quoting any cell with a comma, quote, or line break. */
+export function toCsv(rows: (string | number | null | undefined)[][]): string {
+  return (
+    rows
+      .map((row) =>
+        row
+          .map((cell) => {
+            const value = cell == null ? "" : String(cell);
+            return /[",\r\n]/.test(value)
+              ? `"${value.replace(/"/g, '""')}"`
+              : value;
+          })
+          .join(","),
+      )
+      .join("\r\n") + "\r\n"
+  );
+}

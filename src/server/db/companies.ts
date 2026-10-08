@@ -135,6 +135,26 @@ export async function updateCompany(id: number, input: CompanyInput) {
     .where(eq(companies.id, id));
 }
 
+export async function updateCompanyFields(
+  id: number,
+  patch: Partial<Pick<CompanyInput, "name" | "website" | "status" | "source">>,
+) {
+  const db = getDb();
+  await db
+    .update(companies)
+    .set({ ...patch, updatedAt: sql`(current_timestamp)` })
+    .where(eq(companies.id, id));
+}
+
+export async function getCompanyLastActivity(id: number) {
+  const db = getDb();
+  const [row] = await db
+    .select({ lastActivityAt })
+    .from(companies)
+    .where(eq(companies.id, id));
+  return row?.lastActivityAt ?? null;
+}
+
 export async function archiveCompany(id: number) {
   const db = getDb();
   await db
@@ -143,6 +163,14 @@ export async function archiveCompany(id: number) {
       archivedAt: sql`(current_timestamp)`,
       updatedAt: sql`(current_timestamp)`,
     })
+    .where(eq(companies.id, id));
+}
+
+export async function restoreCompany(id: number) {
+  const db = getDb();
+  await db
+    .update(companies)
+    .set({ archivedAt: null, updatedAt: sql`(current_timestamp)` })
     .where(eq(companies.id, id));
 }
 

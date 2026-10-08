@@ -1,26 +1,182 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Design tokens. Every color is an OKLCH variable; Tailwind utilities
+ * (bg-surface, text-muted, border-border, ...) read them through @theme.
+ * Light is the default scope, `.dark` redefines the values, and
+ * `[data-business]` swaps the accent so the shell shows which business is active.
+ */
+:root,
+.light {
+  color-scheme: light;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.21 0.006 285.885);
+  --surface: oklch(0.985 0 0);
+  --surface-raised: oklch(1 0 0);
+  --surface-hover: oklch(0.967 0.001 286.375);
+  --border: oklch(0.92 0.004 286.32);
+  --border-strong: oklch(0.871 0.006 286.286);
+  --control: oklch(0.62 0.01 286);
+  --muted: oklch(0.967 0.001 286.375);
+  --muted-foreground: oklch(0.48 0.017 285.9);
+  --accent: oklch(0.511 0.262 276.966);
+  --accent-foreground: oklch(1 0 0);
+  --accent-soft: oklch(0.96 0.02 277);
+  --success: oklch(0.5 0.15 150.069);
+  --warning: oklch(0.5 0.14 55);
+  --danger: oklch(0.55 0.22 27.325);
+  --info: oklch(0.5 0.134 242.749);
+  --ring: var(--accent);
+  --shadow-overlay:
+    0 8px 24px -4px oklch(0.21 0.006 285.885 / 0.14),
+    0 2px 6px oklch(0.21 0.006 285.885 / 0.08);
+}
+
+.dark {
+  color-scheme: dark;
+  --background: oklch(0.141 0.005 285.823);
+  --foreground: oklch(0.967 0.001 286.375);
+  --surface: oklch(0.18 0.006 285.885);
+  --surface-raised: oklch(0.21 0.006 285.885);
+  --surface-hover: oklch(0.24 0.006 285.9);
+  --border: oklch(0.274 0.006 286.033);
+  --border-strong: oklch(0.37 0.013 285.805);
+  --control: oklch(0.55 0.012 286);
+  --muted: oklch(0.21 0.006 285.885);
+  --muted-foreground: oklch(0.705 0.015 286.067);
+  --accent: oklch(0.673 0.182 276.935);
+  --accent-foreground: oklch(0.141 0.005 285.823);
+  --accent-soft: oklch(0.26 0.06 277);
+  --success: oklch(0.792 0.209 151.711);
+  --warning: oklch(0.828 0.189 84.429);
+  --danger: oklch(0.78 0.15 22.2);
+  --info: oklch(0.746 0.16 232.661);
+  --shadow-overlay:
+    0 8px 24px -4px oklch(0 0 0 / 0.5), 0 2px 6px oklch(0 0 0 / 0.4);
+}
+
+/* Statixx is indigo (the default above); Trazo is emerald; "all" is neutral. */
+[data-business="statixx"] {
+  --accent: oklch(0.511 0.262 276.966);
+  --accent-foreground: oklch(1 0 0);
+  --accent-soft: oklch(0.96 0.02 277);
+}
+.dark [data-business="statixx"],
+[data-business="statixx"].dark {
+  --accent: oklch(0.673 0.182 276.935);
+  --accent-foreground: oklch(0.141 0.005 285.823);
+  --accent-soft: oklch(0.26 0.06 277);
+}
+[data-business="trazo"] {
+  --accent: oklch(0.508 0.118 165.612);
+  --accent-foreground: oklch(1 0 0);
+  --accent-soft: oklch(0.96 0.03 165);
+}
+.dark [data-business="trazo"],
+[data-business="trazo"].dark {
+  --accent: oklch(0.765 0.177 163.223);
+  --accent-foreground: oklch(0.141 0.005 285.823);
+  --accent-soft: oklch(0.26 0.05 165);
+}
+[data-business="all"] {
+  --accent: oklch(0.37 0.013 285.805);
+  --accent-foreground: oklch(1 0 0);
+  --accent-soft: oklch(0.967 0.001 286.375);
+}
+.dark [data-business="all"],
+[data-business="all"].dark {
+  --accent: oklch(0.92 0.004 286.32);
+  --accent-foreground: oklch(0.141 0.005 285.823);
+  --accent-soft: oklch(0.274 0.006 286.033);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-hover: var(--surface-hover);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-control: var(--control);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-soft: var(--accent-soft);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-info: var(--info);
+  --color-ring: var(--ring);
+  --shadow-overlay: var(--shadow-overlay);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+@theme {
+  /* Type scale: 12 / 13 / 14 / 16 / 20 / 24 / 32 */
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1rem;
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base: 0.875rem;
+  --text-base--line-height: 1.375rem;
+  --text-lg: 1rem;
+  --text-lg--line-height: 1.5rem;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.75rem;
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: 2rem;
+  --text-3xl: 2rem;
+  --text-3xl--line-height: 2.5rem;
+
+  /* Radius: 6 inputs, 8 cards, 12 sheets and dialogs */
+  --tap-target: 44px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+
+  /* Motion */
+  --duration-fast: 150ms;
+  --duration-base: 200ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --default-transition-duration: 150ms;
+  --default-transition-timing-function: var(--ease-out);
+}
+
+html {
+  font-size: 14px;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--text-base--line-height);
+}
+
+/* Money, table dates and IDs: mono with tabular numbers. */
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
