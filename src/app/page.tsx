@@ -1,9 +1,13 @@
 import Link from "next/link";
 
 import { WhoFilter, parseWho } from "@/components/who-filter";
-import { formatMeetingTime, ownerLabel } from "@/lib/activity";
+import { formatDaysAgo, formatMeetingTime, ownerLabel } from "@/lib/activity";
 import { listUpcomingMeetings } from "@/server/db/activities";
-import { getHomeCounts } from "@/server/db/companies";
+import {
+  COLD_AFTER_DAYS,
+  getHomeCounts,
+  listGoingCold,
+} from "@/server/db/companies";
 import { getCurrentUserEmail } from "@/server/user";
 import { listDueFollowUps, listWaitingOnReply } from "@/server/db/tasks";
 import { BUSINESSES, type Business } from "@/server/db/schema";
@@ -40,12 +44,13 @@ export default async function Home({
     listUpcomingMeetings(7, owner),
     Promise.all(
       BUSINESSES.map(async (business) => {
-        const [counts, followUps, waiting] = await Promise.all([
+        const [counts, followUps, waiting, cold] = await Promise.all([
           getHomeCounts(business),
           listDueFollowUps(business, owner),
           listWaitingOnReply(business, owner),
+          listGoingCold(business),
         ]);
-        return { business, counts, followUps, waiting };
+        return { business, counts, followUps, waiting, cold };
       }),
     ),
   ]);
@@ -102,7 +107,7 @@ export default async function Home({
         )}
       </section>
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-        {data.map(({ business, counts: stats, followUps, waiting }) => (
+        {data.map(({ business, counts: stats, followUps, waiting, cold }) => (
           <section
             key={business}
             className="rounded-lg border border-zinc-200 p-6 dark:border-zinc-800"
@@ -216,6 +221,39 @@ export default async function Home({
                       >
                         {task.overdue ? "No reply · " : "Reply by "}
                         {task.dueDate ? formatDueDate(task.dueDate) : ""}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {cold.length > 0 && (
+              <div className="mt-6 border-t border-zinc-200 pt-4 dark:border-zinc-800">
+                <h3 className="text-sm font-medium text-zinc-500">
+                  Going cold
+                </h3>
+                <p className="mt-1 text-xs text-zinc-500">
+                  Prospects and open deals with nothing logged for{" "}
+                  {COLD_AFTER_DAYS}+ days.
+                </p>
+                <ul className="mt-2 flex flex-col gap-2">
+                  {cold.map((c) => (
+                    <li
+                      key={c.id}
+                      className="flex items-center justify-between gap-4 text-sm"
+                    >
+                      <Link
+                        href={`/companies/${c.id}`}
+                        className="min-w-0 truncate hover:underline"
+                      >
+                        {c.name}
+                        <span className="text-zinc-500">
+                          {" "}
+                          · {c.status === "prospect" ? "Prospect" : "Open deal"}
+                        </span>
+                      </Link>
+                      <span className="shrink-0 text-zinc-500">
+                        {formatDaysAgo(c.lastActivityAt)}
                       </span>
                     </li>
                   ))}
