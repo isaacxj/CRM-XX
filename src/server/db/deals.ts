@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, isNull, notInArray, sql } from "drizzle-orm";
 
 import { getDb } from "./index";
+import { likePattern, matches } from "./search";
 import {
   companies,
   dealEvents,
@@ -24,8 +25,51 @@ export const BOARD_STAGE_CAP = 40;
 
 export type StageTotal = { count: number; cents: number };
 
+export const DEAL_STATUSES = ["open", "won", "lost"] as const;
+export type DealStatus = (typeof DEAL_STATUSES)[number];
+
+// Filters on the deals page; every one is optional.
+export type DealFilters = {
+  q?: string;
+  billing?: DealBilling;
+  status?: DealStatus;
+};
+
+function filterConditions(filters: DealFilters) {
+  const conditions = [];
+  if (filters.q)
+    conditions.push(
+      sql`(${matches(deals.title, likePattern(filters.q))} or ${matches(companies.name, likePattern(filters.q))})`,
+    );
+  if (filters.billing) conditions.push(eq(deals.billing, filters.billing));
+  if (filters.status === "open")
+    conditions.push(notInArray(deals.stage, ["won", "lost"]));
+  if (filters.status === "won" || filters.status === "lost")
+    conditions.push(eq(deals.stage, filters.status));
+  return conditions;
+}
+
+// The same filters written against the aliases used inside the board's
+// per-stage ranking subquery.
+function rankFilter(filters: DealFilters) {
+  const parts = [sql`true`];
+  if (filters.q) {
+    const pattern = likePattern(filters.q);
+    parts.push(
+      sql`(${matches(sql.raw("d.title"), pattern)} or ${matches(sql.raw("c.name"), pattern)})`,
+    );
+  }
+  if (filters.billing) parts.push(sql`d.billing = ${filters.billing}`);
+  if (filters.status === "open")
+    parts.push(sql`d.stage not in ('won', 'lost')`);
+  if (filters.status === "won" || filters.status === "lost")
+    parts.push(sql`d.stage = ${filters.status}`);
+  return sql.join(parts, sql` and `);
+}
+
 export async function getStageTotals(
   business: Business,
+  filters: DealFilters = {},
 ): Promise<Record<string, StageTotal>> {
   const db = getDb();
   const rows = await db
@@ -36,7 +80,7 @@ export async function getStageTotals(
     })
     .from(deals)
     .innerJoin(companies, eq(deals.companyId, companies.id))
-    .where(eq(companies.business, business))
+    .where(and(eq(companies.business, business), ...filterConditions(filters)))
     .groupBy(deals.stage);
   return Object.fromEntries(
     rows.map((r) => [
@@ -50,8 +94,14 @@ export async function getStageTotals(
 // `limit` and `offset` page through everything (the list).
 export async function listDealsForBoard(
   business: Business,
-  opts: { perStage?: number; limit?: number; offset?: number } = {},
+  opts: {
+    perStage?: number;
+    limit?: number;
+    offset?: number;
+    filters?: DealFilters;
+  } = {},
 ) {
+  const filters = opts.filters ?? {};
   const db = getDb();
   const query = db
     .select({
@@ -72,6 +122,7 @@ export async function listDealsForBoard(
     .where(
       and(
         eq(companies.business, business),
+        ...filterConditions(filters),
         opts.perStage !== undefined
           ? sql`${deals.id} in (
               select id from (
@@ -79,7 +130,7 @@ export async function listDealsForBoard(
                   partition by d.stage order by d.created_at desc, d.id desc
                 ) as rn
                 from deals d join companies c on c.id = d.company_id
-                where c.business = ${business}
+                where c.business = ${business} and ${rankFilter(filters)}
               ) where rn <= ${opts.perStage}
             )`
           : undefined,
