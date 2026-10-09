@@ -200,3 +200,90 @@ export async function getRevenue(
     mrrClients,
   };
 }
+
+export type LostDeals = {
+  total: number;
+  valueCents: number;
+  reasons: { reason: string; count: number; valueCents: number }[];
+  recent: {
+    id: number;
+    title: string;
+    companyId: number;
+    companyName: string;
+    amountCents: number;
+    billing: string;
+    reason: string | null;
+    lostOn: string;
+  }[];
+};
+
+/**
+ * Lost deals for one business: a breakdown by reason (case-insensitive, so
+ * "Price" and "price " group together) and the most recent losses. A deal is
+ * lost on the day it entered Lost, falling back to its close date, then its
+ * last update.
+ */
+export async function getLostDeals(
+  business: Business,
+  recentLimit = 8,
+): Promise<LostDeals> {
+  const db = getDb();
+  const rows = await db
+    .select({
+      id: deals.id,
+      title: deals.title,
+      billing: deals.billing,
+      amountCents: deals.amountCents,
+      closeDate: deals.closeDate,
+      updatedAt: deals.updatedAt,
+      lostReason: deals.lostReason,
+      companyId: companies.id,
+      companyName: companies.name,
+      enteredStage: sql<
+        string | null
+      >`(select max(${dealEvents.createdAt}) from ${dealEvents} where ${dealEvents.dealId} = ${deals.id} and ${dealEvents.toStage} = 'lost')`,
+    })
+    .from(deals)
+    .innerJoin(companies, eq(deals.companyId, companies.id))
+    .where(
+      sql`${companies.business} = ${business} and ${companies.archivedAt} is null and ${deals.stage} = 'lost'`,
+    );
+
+  const lost = rows
+    .map((row) => ({
+      id: row.id,
+      title: row.title,
+      companyId: row.companyId,
+      companyName: row.companyName,
+      amountCents: row.amountCents,
+      billing: row.billing,
+      reason: row.lostReason?.trim() || null,
+      lostOn: (row.enteredStage ?? row.closeDate ?? row.updatedAt).slice(0, 10),
+    }))
+    .sort((a, b) => b.lostOn.localeCompare(a.lostOn) || b.id - a.id);
+
+  const groups = new Map<
+    string,
+    { reason: string; count: number; valueCents: number }
+  >();
+  for (const deal of lost) {
+    const key = deal.reason?.toLowerCase() ?? "";
+    const group = groups.get(key) ?? {
+      reason: deal.reason ?? "No reason given",
+      count: 0,
+      valueCents: 0,
+    };
+    group.count += 1;
+    group.valueCents += deal.amountCents;
+    groups.set(key, group);
+  }
+
+  return {
+    total: lost.length,
+    valueCents: lost.reduce((sum, deal) => sum + deal.amountCents, 0),
+    reasons: [...groups.values()].sort(
+      (a, b) => b.count - a.count || b.valueCents - a.valueCents,
+    ),
+    recent: lost.slice(0, recentLimit),
+  };
+}

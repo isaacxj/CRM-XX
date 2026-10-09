@@ -41,10 +41,16 @@ export type BarRow = {
 };
 
 /** Horizontal bars, one row per stage, scaled to the largest value. */
-export function HBars({ rows }: { rows: BarRow[] }) {
+export function HBars({
+  rows,
+  label = "Open pipeline by stage",
+}: {
+  rows: BarRow[];
+  label?: string;
+}) {
   const max = Math.max(1, ...rows.map((row) => row.value));
   return (
-    <ul className="flex flex-col gap-2" aria-label="Open pipeline by stage">
+    <ul className="flex flex-col gap-2" aria-label={label}>
       {rows.map((row) => (
         <li key={row.label}>
           <div className="flex items-baseline justify-between gap-3 text-sm">

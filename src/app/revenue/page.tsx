@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/kit/page-header";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/cn";
 import { Delta, HBars, LineChart } from "@/components/revenue-charts";
-import { getRevenue, type Money } from "@/server/db/revenue";
+import { getLostDeals, getRevenue, type Money } from "@/server/db/revenue";
 import {
   BUSINESSES,
   STATIXX_STAGES,
@@ -65,7 +65,10 @@ export default async function RevenuePage({
     business === "statixx" ? STATIXX_STAGES : TRAZO_STAGES
   ).filter((stage) => stage !== "won" && stage !== "lost");
 
-  const revenue = await getRevenue(business);
+  const [revenue, lost] = await Promise.all([
+    getRevenue(business),
+    getLostDeals(business),
+  ]);
   const byStage = new Map(revenue.pipeline.map((row) => [row.stage, row]));
   const total = (money: Money) => money.oneTimeCents + money.monthlyCents;
   const pipelineRows = openStages.map((stage) => {
@@ -77,6 +80,12 @@ export default async function RevenuePage({
       note: `${row?.count ?? 0} ${row?.count === 1 ? "deal" : "deals"}`,
     };
   });
+  const reasonRows = lost.reasons.slice(0, 6).map((row) => ({
+    label: row.reason,
+    value: row.count,
+    display: `${row.count} ${row.count === 1 ? "deal" : "deals"}`,
+    note: formatCents(row.valueCents),
+  }));
   const mrrPoints = revenue.mrrByMonth.map((point) => ({
     label: new Date(`${point.month}-01T00:00:00Z`).toLocaleDateString("en-US", {
       month: "short",
@@ -177,6 +186,61 @@ export default async function RevenuePage({
           </p>
         </Card>
       </div>
+
+      <Card>
+        <h2 className="text-base font-semibold">Why we lose deals</h2>
+        {lost.total === 0 ? (
+          <p className="text-muted-foreground mt-2 text-sm">
+            No lost deals yet. When you move a deal to Lost on the{" "}
+            <Link
+              href={`/deals?business=${business}`}
+              className="text-accent underline"
+            >
+              deals board
+            </Link>
+            , the reason you give shows up here.
+          </p>
+        ) : (
+          <div className="mt-3 grid gap-6 lg:grid-cols-2">
+            <div>
+              <p className="text-muted-foreground mb-3 text-xs">
+                {lost.total} lost {lost.total === 1 ? "deal" : "deals"} worth{" "}
+                <span className="num">{formatCents(lost.valueCents)}</span>,
+                grouped by the reason given.
+              </p>
+              <HBars rows={reasonRows} label="Lost deals by reason" />
+            </div>
+            <div>
+              <h3 className="mb-1 text-sm font-medium">Recently lost</h3>
+              <ul className="divide-border divide-y text-sm">
+                {lost.recent.map((deal) => (
+                  <li key={deal.id} className="py-2">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <Link
+                        href={`/companies/${deal.companyId}`}
+                        className="min-w-0 truncate hover:underline"
+                      >
+                        {deal.companyName}
+                        <span className="text-muted-foreground ml-2">
+                          {deal.title}
+                        </span>
+                      </Link>
+                      <span className="num shrink-0">
+                        {formatCents(deal.amountCents)}
+                        {deal.billing === "monthly" ? "/mo" : ""}
+                      </span>
+                    </div>
+                    <p className="text-muted-foreground text-xs">
+                      <span className="num">{deal.lostOn}</span> ·{" "}
+                      {deal.reason ?? "No reason given"}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
+      </Card>
 
       <Card>
         <h2 className="text-base font-semibold">Monthly recurring clients</h2>
