@@ -204,6 +204,12 @@ export default async function CompaniesPage({
             >
               Import CSV
             </Link>
+            <Link
+              href="/companies/duplicates"
+              className={buttonVariants({ variant: "secondary" })}
+            >
+              Find duplicates
+            </Link>
             <Link href="/companies?new=1" className={buttonVariants()}>
               Add company
             </Link>

@@ -85,7 +85,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
     id: "import-export",
     title: "Import and export",
     href: "/export",
-    body: "Import companies and contacts from a CSV by mapping columns and previewing before you commit. Export companies, contacts, deals, activities, and tasks as CSV, per business or all.",
+    body: "Import companies and contacts from a CSV by mapping columns and previewing before you commit, then use Find duplicates on Companies to merge any company entered twice. Export companies, contacts, deals, activities, and tasks as CSV, per business or all.",
   },
   {
     id: "logging",
