@@ -121,3 +121,39 @@ export async function deleteContact(id: number) {
   const db = getDb();
   await db.delete(contacts).where(eq(contacts.id, id));
 }
+
+// A contact with its company, for the contact page. Null when the contact or
+// its company no longer exists.
+export async function getContactWithCompany(id: number) {
+  const db = getDb();
+  const [row] = await db
+    .select({
+      id: contacts.id,
+      name: contacts.name,
+      email: contacts.email,
+      phone: contacts.phone,
+      title: contacts.title,
+      companyId: contacts.companyId,
+      companyName: companies.name,
+      business: companies.business,
+      archivedAt: companies.archivedAt,
+    })
+    .from(contacts)
+    .innerJoin(companies, eq(contacts.companyId, companies.id))
+    .where(eq(contacts.id, id));
+  return row ?? null;
+}
+
+export async function listColleagues(companyId: number, exceptId: number) {
+  const db = getDb();
+  return db
+    .select({ id: contacts.id, name: contacts.name, title: contacts.title })
+    .from(contacts)
+    .where(
+      and(
+        eq(contacts.companyId, companyId),
+        sql`${contacts.id} != ${exceptId}`,
+      ),
+    )
+    .orderBy(asc(contacts.name));
+}

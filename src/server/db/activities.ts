@@ -374,3 +374,21 @@ export async function listMeetings(
     ? query.limit(filters.limit).offset(filters.offset ?? 0)
     : query;
 }
+
+// Everything logged against one person, newest first.
+export async function listActivitiesForContact(contactId: number) {
+  const db = getDb();
+  return db
+    .select({
+      id: activities.id,
+      type: activities.type,
+      subject: activities.subject,
+      body: activities.body,
+      occurredAt: activities.occurredAt,
+      endsAt: activities.endsAt,
+      ownerEmail: activities.ownerEmail,
+    })
+    .from(activities)
+    .where(eq(activities.contactId, contactId))
+    .orderBy(desc(activities.occurredAt), desc(activities.id));
+}

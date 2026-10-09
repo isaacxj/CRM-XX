@@ -164,7 +164,7 @@ export default async function ContactsPage({
           </thead>
           <tbody>
             {contacts.map((contact) => (
-              <Tr key={contact.id} href={`/companies/${contact.companyId}`}>
+              <Tr key={contact.id} href={`/contacts/${contact.id}`}>
                 <Td>
                   <span className="flex items-center gap-2 font-medium">
                     <Avatar name={contact.name} />
