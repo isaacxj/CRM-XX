@@ -287,3 +287,55 @@ export async function getLostDeals(
     recent: lost.slice(0, recentLimit),
   };
 }
+
+export type SourceRow = {
+  source: string;
+  companies: number;
+  clients: number;
+  wonDeals: number;
+  wonCents: number;
+};
+
+/**
+ * Where a business's companies come from: one row per company source
+ * (case-insensitive, blank sources grouped as "No source"), with how many
+ * became clients and what their won deals are worth. Busiest sources first.
+ */
+export async function getSources(business: Business): Promise<SourceRow[]> {
+  const db = getDb();
+  const rows = await db
+    .select({
+      source: companies.source,
+      status: companies.status,
+      wonDeals: sql<number>`(select count(*) from ${deals} where ${deals.companyId} = ${companies.id} and ${deals.stage} = 'won')`,
+      wonCents: sql<number>`(select coalesce(sum(${deals.amountCents}), 0) from ${deals} where ${deals.companyId} = ${companies.id} and ${deals.stage} = 'won')`,
+    })
+    .from(companies)
+    .where(
+      sql`${companies.business} = ${business} and ${companies.archivedAt} is null`,
+    );
+
+  const groups = new Map<string, SourceRow>();
+  for (const row of rows) {
+    const label = row.source?.trim() || "No source";
+    const key = label.toLowerCase();
+    const group = groups.get(key) ?? {
+      source: label,
+      companies: 0,
+      clients: 0,
+      wonDeals: 0,
+      wonCents: 0,
+    };
+    group.companies += 1;
+    if (row.status === "client") group.clients += 1;
+    group.wonDeals += Number(row.wonDeals);
+    group.wonCents += Number(row.wonCents);
+    groups.set(key, group);
+  }
+  return [...groups.values()].sort(
+    (a, b) =>
+      b.companies - a.companies ||
+      b.wonCents - a.wonCents ||
+      a.source.localeCompare(b.source),
+  );
+}

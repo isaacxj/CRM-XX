@@ -4,7 +4,12 @@ import { PageHeader } from "@/components/kit/page-header";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/cn";
 import { Delta, HBars, LineChart } from "@/components/revenue-charts";
-import { getLostDeals, getRevenue, type Money } from "@/server/db/revenue";
+import {
+  getLostDeals,
+  getRevenue,
+  getSources,
+  type Money,
+} from "@/server/db/revenue";
 import {
   BUSINESSES,
   STATIXX_STAGES,
@@ -65,9 +70,10 @@ export default async function RevenuePage({
     business === "statixx" ? STATIXX_STAGES : TRAZO_STAGES
   ).filter((stage) => stage !== "won" && stage !== "lost");
 
-  const [revenue, lost] = await Promise.all([
+  const [revenue, lost, sources] = await Promise.all([
     getRevenue(business),
     getLostDeals(business),
+    getSources(business),
   ]);
   const byStage = new Map(revenue.pipeline.map((row) => [row.stage, row]));
   const total = (money: Money) => money.oneTimeCents + money.monthlyCents;
@@ -238,6 +244,57 @@ export default async function RevenuePage({
                 ))}
               </ul>
             </div>
+          </div>
+        )}
+      </Card>
+
+      <Card>
+        <h2 className="text-base font-semibold">Where companies come from</h2>
+        {sources.length === 0 ? (
+          <p className="text-muted-foreground mt-2 text-sm">
+            No companies yet. Add a company with a source, such as Referral or
+            Website, and the sources show up here.
+          </p>
+        ) : (
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-muted-foreground text-left text-xs">
+                <tr>
+                  <th className="py-1 pr-3 font-medium">Source</th>
+                  <th className="px-3 py-1 text-right font-medium">
+                    Companies
+                  </th>
+                  <th className="px-3 py-1 text-right font-medium">Clients</th>
+                  <th className="px-3 py-1 text-right font-medium">
+                    Won deals
+                  </th>
+                  <th className="py-1 pl-3 text-right font-medium">
+                    Won value
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-border divide-y">
+                {sources.map((row) => (
+                  <tr key={row.source}>
+                    <td className="py-2 pr-3">{row.source}</td>
+                    <td className="num px-3 py-2 text-right">
+                      {row.companies}
+                    </td>
+                    <td className="num px-3 py-2 text-right">
+                      {row.clients}
+                      <span className="text-muted-foreground">
+                        {" "}
+                        ({Math.round((row.clients / row.companies) * 100)}%)
+                      </span>
+                    </td>
+                    <td className="num px-3 py-2 text-right">{row.wonDeals}</td>
+                    <td className="num py-2 pl-3 text-right">
+                      {formatCents(row.wonCents)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </Card>
