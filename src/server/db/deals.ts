@@ -337,3 +337,48 @@ export async function listClosingDeals(
     )
     .limit(CLOSING_CAP);
 }
+
+export type StalledDeal = ClosingDeal & {
+  // When the deal entered its current stage: last stage change, else created.
+  stageSince: string;
+};
+
+// Open deals on active companies, longest in their stage first. Capped so a
+// very large pipeline stays fast.
+export const STALLED_CAP = 300;
+
+export async function listStalledDeals(
+  filters: { business?: Business; q?: string } = {},
+): Promise<StalledDeal[]> {
+  const db = getDb();
+  return db
+    .select({
+      id: deals.id,
+      title: deals.title,
+      stage: deals.stage,
+      amountCents: deals.amountCents,
+      billing: deals.billing,
+      closeDate: deals.closeDate,
+      companyId: companies.id,
+      companyName: companies.name,
+      business: companies.business,
+      stageSince: sql<string>`coalesce((select max(${dealEvents.createdAt}) from ${dealEvents} where ${dealEvents.dealId} = ${deals.id}), ${deals.createdAt})`,
+    })
+    .from(deals)
+    .innerJoin(companies, eq(deals.companyId, companies.id))
+    .where(
+      and(
+        isNull(companies.archivedAt),
+        notInArray(deals.stage, ["won", "lost"]),
+        filters.business ? eq(companies.business, filters.business) : undefined,
+        filters.q
+          ? sql`(${matches(deals.title, likePattern(filters.q))} or ${matches(companies.name, likePattern(filters.q))})`
+          : undefined,
+      ),
+    )
+    .orderBy(
+      sql`coalesce((select max(${dealEvents.createdAt}) from ${dealEvents} where ${dealEvents.dealId} = ${deals.id}), ${deals.createdAt})`,
+      desc(deals.amountCents),
+    )
+    .limit(STALLED_CAP);
+}

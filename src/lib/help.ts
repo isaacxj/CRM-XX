@@ -59,6 +59,13 @@ export const HELP_ENTRIES: HelpEntry[] = [
     ],
   },
   {
+    id: "stalled",
+    title: "Stalled",
+    href: "/stalled",
+    body: "Open deals grouped by how long they have sat in their current stage: 60 days or more, 30 to 59, 14 to 29, and under 14, with a count and total for each group. Filter by business or search deals and companies.",
+    tips: ["Moving a deal to another stage resets its clock."],
+  },
+  {
     id: "meetings",
     title: "Meetings",
     href: "/meetings",
@@ -127,6 +134,7 @@ export const RELEASE_NOTES: ReleaseNote[] = [
       "Bulk actions and saved views on Companies.",
       "Pin companies to the sidebar; the palette shows your recent companies.",
       "Closing page: open deals by expected close date.",
+      "Stalled page: open deals by how long they have sat in their stage.",
       "This Help page.",
     ],
   },
