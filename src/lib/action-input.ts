@@ -46,6 +46,11 @@ export const snoozeInput = z.object({
     .refine((d) => [1, 3, 7].includes(d), "Pick tomorrow, 3 days, or a week."),
 });
 
+export const nextStepInput = z.object({
+  companyId: recordId,
+  days: snoozeInput.shape.days,
+});
+
 export const followUpInput = z.object({
   title: text.min(1, "Describe the follow-up before adding it."),
   dueDate: optionalDate,

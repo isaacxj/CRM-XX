@@ -66,6 +66,15 @@ export const HELP_ENTRIES: HelpEntry[] = [
     tips: ["Moving a deal to another stage resets its clock."],
   },
   {
+    id: "next-steps",
+    title: "No next step",
+    href: "/next-steps",
+    body: "Prospects and clients with no open follow-up and no meeting coming up, stalest first, with when you last touched them and how many deals are open. Schedule a follow-up in one click: tomorrow, in 3 days, or next week. Filter by business or search by name.",
+    tips: [
+      "A company drops off this list as soon as it has an open follow-up.",
+    ],
+  },
+  {
     id: "meetings",
     title: "Meetings",
     href: "/meetings",
@@ -135,6 +144,7 @@ export const RELEASE_NOTES: ReleaseNote[] = [
       "Pin companies to the sidebar; the palette shows your recent companies.",
       "Closing page: open deals by expected close date.",
       "Stalled page: open deals by how long they have sat in their stage.",
+      "No next step page: prospects and clients with nothing planned, with one-click follow-ups.",
       "This Help page.",
     ],
   },

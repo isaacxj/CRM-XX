@@ -146,6 +146,49 @@ export async function listGoingCold(business: Business) {
     .orderBy(asc(lastActivityAt), asc(companies.name));
 }
 
+// Max rows on the No next step page.
+export const NO_NEXT_STEP_CAP = 300;
+
+// Active (prospect or client) companies with nothing planned: no open task of
+// any kind and no meeting still to come. Stalest first.
+export async function listWithoutNextStep(
+  filters: { business?: Business; q?: string } = {},
+) {
+  const db = getDb();
+  return db
+    .select({
+      id: companies.id,
+      name: companies.name,
+      business: companies.business,
+      status: companies.status,
+      lastActivityAt,
+      openDeals: sql<number>`(
+        select count(*) from deals
+        where company_id = ${companyId} and stage not in ('won', 'lost')
+      )`,
+    })
+    .from(companies)
+    .where(
+      and(
+        isNull(companies.archivedAt),
+        inArray(companies.status, ["prospect", "client"]),
+        filters.business ? eq(companies.business, filters.business) : undefined,
+        filters.q ? matches(companies.name, likePattern(filters.q)) : undefined,
+        sql`not exists (
+          select 1 from tasks
+          where company_id = ${companyId} and done_at is null
+        )`,
+        sql`not exists (
+          select 1 from activities
+          where company_id = ${companyId} and type = 'meeting'
+            and datetime(occurred_at) > datetime('now')
+        )`,
+      ),
+    )
+    .orderBy(asc(lastActivityAt), asc(companies.name))
+    .limit(NO_NEXT_STEP_CAP);
+}
+
 export async function getCompany(id: number) {
   const db = getDb();
   const [company] = await db
