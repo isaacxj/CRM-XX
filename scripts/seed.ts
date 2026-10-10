@@ -153,7 +153,14 @@ async function main() {
               ? 25_000_00 + index * 5_000_00
               : 500_00 + index * 100_00,
           billing: business === "statixx" ? "one_time" : "monthly",
-          closeDate: stage === "won" || stage === "lost" ? "2026-08-15" : null,
+          closeDate:
+            stage === "won" || stage === "lost"
+              ? "2026-08-15"
+              : index % 4 === 3
+                ? null
+                : new Date(Date.now() + (index * 9 - 6) * 86_400_000)
+                    .toISOString()
+                    .slice(0, 10),
           lostReason: stage === "lost" ? "Budget cut" : null,
         })
         .returning();

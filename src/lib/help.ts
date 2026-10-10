@@ -50,6 +50,15 @@ export const HELP_ENTRIES: HelpEntry[] = [
     body: "Every note, email, call, and meeting across all companies, newest first. Filter by type, business, or owner, and search subjects, details, and names.",
   },
   {
+    id: "closing",
+    title: "Closing",
+    href: "/closing",
+    body: "Open deals grouped by expected close date: past its date, next 7 days, within 30 days, later, and no date, with a count and total for each group. Filter by business or search deals and companies.",
+    tips: [
+      "Deals past their close date are marked in red; set a new date on the company page.",
+    ],
+  },
+  {
     id: "meetings",
     title: "Meetings",
     href: "/meetings",
@@ -117,6 +126,7 @@ export const RELEASE_NOTES: ReleaseNote[] = [
       "Long lists are paged, and every page stays fast with thousands of records.",
       "Bulk actions and saved views on Companies.",
       "Pin companies to the sidebar; the palette shows your recent companies.",
+      "Closing page: open deals by expected close date.",
       "This Help page.",
     ],
   },

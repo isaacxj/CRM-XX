@@ -285,3 +285,55 @@ export async function getPipelineSnapshot(
     cents: Number(r.cents),
   }));
 }
+
+export type ClosingDeal = {
+  id: number;
+  title: string;
+  stage: string;
+  amountCents: number;
+  billing: DealBilling;
+  closeDate: string | null;
+  companyId: number;
+  companyName: string;
+  business: Business;
+};
+
+// Open deals on active companies, soonest close date first and deals with no
+// date last. Capped so a very large pipeline stays fast.
+export const CLOSING_CAP = 300;
+
+export async function listClosingDeals(
+  filters: { business?: Business; q?: string } = {},
+): Promise<ClosingDeal[]> {
+  const db = getDb();
+  return db
+    .select({
+      id: deals.id,
+      title: deals.title,
+      stage: deals.stage,
+      amountCents: deals.amountCents,
+      billing: deals.billing,
+      closeDate: deals.closeDate,
+      companyId: companies.id,
+      companyName: companies.name,
+      business: companies.business,
+    })
+    .from(deals)
+    .innerJoin(companies, eq(deals.companyId, companies.id))
+    .where(
+      and(
+        isNull(companies.archivedAt),
+        notInArray(deals.stage, ["won", "lost"]),
+        filters.business ? eq(companies.business, filters.business) : undefined,
+        filters.q
+          ? sql`(${matches(deals.title, likePattern(filters.q))} or ${matches(companies.name, likePattern(filters.q))})`
+          : undefined,
+      ),
+    )
+    .orderBy(
+      sql`${deals.closeDate} is null`,
+      asc(deals.closeDate),
+      desc(deals.amountCents),
+    )
+    .limit(CLOSING_CAP);
+}
