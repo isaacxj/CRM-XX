@@ -75,6 +75,15 @@ export const HELP_ENTRIES: HelpEntry[] = [
     ],
   },
   {
+    id: "data-gaps",
+    title: "Data gaps",
+    href: "/data-gaps",
+    body: "Missing details across your records, with a form on each row to fill them in. Company details lists companies with no website or source, No contacts lists prospects and clients with nobody to talk to, and Contact emails lists people with no email address. Filter by business.",
+    tips: [
+      "Saving only fills blanks, so it never overwrites something already entered.",
+    ],
+  },
+  {
     id: "meetings",
     title: "Meetings",
     href: "/meetings",
@@ -145,6 +154,7 @@ export const RELEASE_NOTES: ReleaseNote[] = [
       "Closing page: open deals by expected close date.",
       "Stalled page: open deals by how long they have sat in their stage.",
       "No next step page: prospects and clients with nothing planned, with one-click follow-ups.",
+      "Data gaps page: companies and contacts with missing details, fixed in place.",
       "This Help page.",
     ],
   },

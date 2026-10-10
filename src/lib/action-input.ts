@@ -51,6 +51,24 @@ export const nextStepInput = z.object({
   days: snoozeInput.shape.days,
 });
 
+export const companyDetailsInput = z
+  .object({
+    companyId: recordId,
+    website: text.transform(blank).optional(),
+    source: text.transform(blank).optional(),
+  })
+  .refine((d) => d.website || d.source, "Enter a website or a source to save.");
+
+export const contactEmailInput = z.object({
+  contactId: recordId,
+  email: text
+    .min(1, "Enter an email address to save.")
+    .regex(
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+      "Enter a valid email address, like name@company.com.",
+    ),
+});
+
 export const followUpInput = z.object({
   title: text.min(1, "Describe the follow-up before adding it."),
   dueDate: optionalDate,

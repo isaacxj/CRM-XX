@@ -14,6 +14,7 @@ import {
   Search,
   Hourglass,
   CircleSlash,
+  FileQuestion,
   Settings,
   Users,
   type LucideIcon,
@@ -41,6 +42,7 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { href: "/companies", label: "Companies", Icon: Building2 },
       { href: "/contacts", label: "Contacts", Icon: Users },
       { href: "/search", label: "Search", Icon: Search },
+      { href: "/data-gaps", label: "Data gaps", Icon: FileQuestion },
     ],
   },
   {
