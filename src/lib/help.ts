@@ -59,6 +59,15 @@ export const HELP_ENTRIES: HelpEntry[] = [
     ],
   },
   {
+    id: "review",
+    title: "Review",
+    href: "/review",
+    body: "A look back over the last 7, 14 or 30 days: deals won and lost with their value, companies added, what you logged by type, and follow-ups finished. Filter by business.",
+    tips: [
+      "A deal counts as won or lost on the day it was moved to that stage.",
+    ],
+  },
+  {
     id: "workload",
     title: "Workload",
     href: "/workload",
@@ -162,6 +171,7 @@ export const RELEASE_NOTES: ReleaseNote[] = [
       "Pin companies to the sidebar; the palette shows your recent companies.",
       "Closing page: open deals by expected close date.",
       "Stalled page: open deals by how long they have sat in their stage.",
+      "Review page: a weekly look back at deals won and lost, activity and finished follow-ups.",
       "Workload page: open follow-ups, replies and meetings per person.",
       "No next step page: prospects and clients with nothing planned, with one-click follow-ups.",
       "Data gaps page: companies and contacts with missing details, fixed in place.",
