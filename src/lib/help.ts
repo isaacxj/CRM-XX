@@ -128,7 +128,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
     id: "import-export",
     title: "Import and export",
     href: "/export",
-    body: "Import companies and contacts from a CSV by mapping columns and previewing before you commit, then use Find duplicates on Companies to merge any company entered twice. Export companies, contacts, deals, activities, and tasks as CSV, per business or all.",
+    body: "Import companies and contacts from a CSV by mapping columns and previewing before you commit, then use Find duplicates on Companies or Contacts to merge anything entered twice. Export companies, contacts, deals, activities, and tasks as CSV, per business or all.",
   },
   {
     id: "logging",
@@ -165,6 +165,7 @@ export const RELEASE_NOTES: ReleaseNote[] = [
       "Workload page: open follow-ups, replies and meetings per person.",
       "No next step page: prospects and clients with nothing planned, with one-click follow-ups.",
       "Data gaps page: companies and contacts with missing details, fixed in place.",
+      "Duplicate contacts: Find duplicates on Contacts merges people entered twice at the same company.",
       "This Help page.",
     ],
   },

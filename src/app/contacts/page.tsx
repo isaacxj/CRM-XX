@@ -4,7 +4,7 @@ import { DataTable, EmptyState, Td, Th, Tr } from "@/components/kit/data-table";
 import { Avatar } from "@/components/kit/avatar";
 import { PageHeader } from "@/components/kit/page-header";
 import { BusinessBadge } from "@/components/kit/status-badges";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Pagination } from "@/components/kit/pagination";
 import { pageWindow, parsePage } from "@/lib/pagination";
@@ -74,6 +74,14 @@ export default async function ContactsPage({
       <PageHeader
         title="Contacts"
         description="Everyone you talk to, across both businesses. Open a row to go to their company."
+        actions={
+          <Link
+            href="/contacts/duplicates"
+            className={buttonVariants({ variant: "secondary" })}
+          >
+            Find duplicates
+          </Link>
+        }
       />
 
       <form className="flex flex-wrap items-end gap-3" method="get">
