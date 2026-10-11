@@ -84,6 +84,15 @@ export const HELP_ENTRIES: HelpEntry[] = [
     tips: ["Moving a deal to another stage resets its clock."],
   },
   {
+    id: "lost",
+    title: "Lost deals",
+    href: "/lost",
+    body: "Every deal you lost, newest first, with the reason, value and how long ago. Click a reason to see only those. Reopen puts a deal back in the first stage of its pipeline, and In 30 days or In 90 days adds a follow-up on the company so you remember to try again. Filter by business or search by deal or company.",
+    tips: [
+      "Reopening records a stage change, so it shows on the company timeline.",
+    ],
+  },
+  {
     id: "next-steps",
     title: "No next step",
     href: "/next-steps",

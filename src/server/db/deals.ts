@@ -382,3 +382,66 @@ export async function listStalledDeals(
     )
     .limit(STALLED_CAP);
 }
+
+export type LostDeal = {
+  id: number;
+  title: string;
+  amountCents: number;
+  billing: DealBilling;
+  lostReason: string | null;
+  lostAt: string;
+  companyId: number;
+  companyName: string;
+  business: Business;
+};
+
+// Lost deals on active companies, most recently lost first. The lost date is
+// the stage change into Lost, else the last time the deal was touched. Capped
+// so a long history stays fast.
+export const LOST_CAP = 300;
+
+export async function listLostDeals(
+  filters: { business?: Business; q?: string } = {},
+): Promise<LostDeal[]> {
+  const db = getDb();
+  const lostAt = sql<string>`coalesce((select max(${dealEvents.createdAt}) from ${dealEvents} where ${dealEvents.dealId} = ${deals.id} and ${dealEvents.toStage} = 'lost'), ${deals.updatedAt})`;
+  return db
+    .select({
+      id: deals.id,
+      title: deals.title,
+      amountCents: deals.amountCents,
+      billing: deals.billing,
+      lostReason: deals.lostReason,
+      lostAt,
+      companyId: companies.id,
+      companyName: companies.name,
+      business: companies.business,
+    })
+    .from(deals)
+    .innerJoin(companies, eq(deals.companyId, companies.id))
+    .where(
+      and(
+        isNull(companies.archivedAt),
+        eq(deals.stage, "lost"),
+        filters.business ? eq(companies.business, filters.business) : undefined,
+        filters.q
+          ? sql`(${matches(deals.title, likePattern(filters.q))} or ${matches(companies.name, likePattern(filters.q))})`
+          : undefined,
+      ),
+    )
+    .orderBy(desc(lostAt), desc(deals.amountCents))
+    .limit(LOST_CAP);
+}
+
+// Moves a lost deal back to the first stage of its pipeline and records the
+// stage change. Only lost deals can be reopened.
+export async function reopenLostDeal(id: number) {
+  const db = getDb();
+  const [deal] = await db
+    .select({ stage: deals.stage })
+    .from(deals)
+    .where(eq(deals.id, id));
+  if (!deal) throw new Error("Deal not found.");
+  if (deal.stage !== "lost") throw new Error("Only lost deals can be reopened.");
+  await moveDealStage(id, "qualified", null);
+}

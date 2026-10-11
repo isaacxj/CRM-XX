@@ -153,3 +153,10 @@ export function withProblem(path: string, message: string) {
   url.searchParams.set("problem", message);
   return `${url.pathname}${url.search}`;
 }
+
+export const revisitInput = z.object({
+  dealId: recordId,
+  days: z.coerce
+    .number()
+    .refine((d) => [30, 90].includes(d), "Pick 30 or 90 days."),
+});
