@@ -59,6 +59,15 @@ export const HELP_ENTRIES: HelpEntry[] = [
     ],
   },
   {
+    id: "workload",
+    title: "Workload",
+    href: "/workload",
+    body: "One row per person: open follow-ups and emails waiting on a reply (with how many are overdue), meetings in the next 7 days, and what they logged in the last 7 days. Filter by business.",
+    tips: [
+      "Items with no owner, such as older entries, are grouped under No owner.",
+    ],
+  },
+  {
     id: "stalled",
     title: "Stalled",
     href: "/stalled",
@@ -153,6 +162,7 @@ export const RELEASE_NOTES: ReleaseNote[] = [
       "Pin companies to the sidebar; the palette shows your recent companies.",
       "Closing page: open deals by expected close date.",
       "Stalled page: open deals by how long they have sat in their stage.",
+      "Workload page: open follow-ups, replies and meetings per person.",
       "No next step page: prospects and clients with nothing planned, with one-click follow-ups.",
       "Data gaps page: companies and contacts with missing details, fixed in place.",
       "This Help page.",

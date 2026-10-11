@@ -17,6 +17,7 @@ import {
   FileQuestion,
   Settings,
   Users,
+  UsersRound,
   type LucideIcon,
 } from "lucide-react";
 
@@ -31,6 +32,7 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { href: "/deals", label: "Deals", Icon: Handshake },
       { href: "/closing", label: "Closing", Icon: CalendarClock },
       { href: "/stalled", label: "Stalled", Icon: Hourglass },
+      { href: "/workload", label: "Workload", Icon: UsersRound },
       { href: "/next-steps", label: "No next step", Icon: CircleSlash },
       { href: "/activity", label: "Activity", Icon: Activity },
       { href: "/meetings", label: "Meetings", Icon: CalendarDays },
