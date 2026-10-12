@@ -112,6 +112,15 @@ export const HELP_ENTRIES: HelpEntry[] = [
     ],
   },
   {
+    id: "won",
+    title: "Won deals",
+    href: "/won",
+    body: "Every deal you won, newest first, with the value, how many days it took from creation to win, and a monthly total for subscription deals. Make client updates a company that is still a prospect, and In 30 days or In 90 days adds a check-in follow-up on the company. Filter by business or search by deal or company.",
+    tips: [
+      "Make client only appears while the company is still marked as a prospect.",
+    ],
+  },
+  {
     id: "lost",
     title: "Lost deals",
     href: "/lost",

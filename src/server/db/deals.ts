@@ -7,6 +7,7 @@ import {
   dealEvents,
   deals,
   type Business,
+  type CompanyStatus,
   type DealBilling,
   type DealStage,
 } from "./schema";
@@ -442,6 +443,70 @@ export async function reopenLostDeal(id: number) {
     .from(deals)
     .where(eq(deals.id, id));
   if (!deal) throw new Error("Deal not found.");
-  if (deal.stage !== "lost") throw new Error("Only lost deals can be reopened.");
+  if (deal.stage !== "lost")
+    throw new Error("Only lost deals can be reopened.");
   await moveDealStage(id, "qualified", null);
+}
+
+export type WonDeal = {
+  id: number;
+  title: string;
+  amountCents: number;
+  billing: DealBilling;
+  wonAt: string;
+  daysToWin: number;
+  companyId: number;
+  companyName: string;
+  companyStatus: CompanyStatus;
+  business: Business;
+};
+
+// Won deals on active companies, most recently won first. The won date is the
+// stage change into Won, else the last time the deal was touched. Capped so a
+// long history stays fast.
+export const WON_CAP = 300;
+
+export async function listWonDeals(
+  filters: { business?: Business; q?: string } = {},
+): Promise<WonDeal[]> {
+  const db = getDb();
+  const wonAt = sql<string>`coalesce((select max(${dealEvents.createdAt}) from ${dealEvents} where ${dealEvents.dealId} = ${deals.id} and ${dealEvents.toStage} = 'won'), ${deals.updatedAt})`;
+  const rows = await db
+    .select({
+      id: deals.id,
+      title: deals.title,
+      amountCents: deals.amountCents,
+      billing: deals.billing,
+      wonAt,
+      createdAt: deals.createdAt,
+      companyId: companies.id,
+      companyName: companies.name,
+      companyStatus: companies.status,
+      business: companies.business,
+    })
+    .from(deals)
+    .innerJoin(companies, eq(deals.companyId, companies.id))
+    .where(
+      and(
+        isNull(companies.archivedAt),
+        eq(deals.stage, "won"),
+        filters.business ? eq(companies.business, filters.business) : undefined,
+        filters.q
+          ? sql`(${matches(deals.title, likePattern(filters.q))} or ${matches(companies.name, likePattern(filters.q))})`
+          : undefined,
+      ),
+    )
+    .orderBy(desc(wonAt), desc(deals.amountCents))
+    .limit(WON_CAP);
+  return rows.map(({ createdAt, ...deal }) => ({
+    ...deal,
+    daysToWin: Math.max(
+      0,
+      Math.round(
+        (Date.parse(`${deal.wonAt.replace(" ", "T")}Z`) -
+          Date.parse(`${createdAt.replace(" ", "T")}Z`)) /
+          86_400_000,
+      ),
+    ),
+  }));
 }
