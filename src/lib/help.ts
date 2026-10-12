@@ -84,6 +84,16 @@ export const HELP_ENTRIES: HelpEntry[] = [
     tips: ["Moving a deal to another stage resets its clock."],
   },
   {
+    id: "sources",
+    title: "Sources",
+    href: "/sources",
+    body: "Shows where your companies come from, using the source field on each company. For every source you see how many companies it brought, how many became clients, how many won a deal, the open pipeline and the revenue won. Click a source to list its companies, and filter by business.",
+    tips: [
+      "Sources match ignoring capital letters and extra spaces, so Referral and referral count together.",
+      "Companies with a blank source are grouped as No source; fill them in on Data gaps.",
+    ],
+  },
+  {
     id: "lost",
     title: "Lost deals",
     href: "/lost",
