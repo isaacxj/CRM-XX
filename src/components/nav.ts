@@ -7,6 +7,7 @@ import {
   CheckSquare,
   ClipboardList,
   Download,
+  Filter,
   Handshake,
   HelpCircle,
   Home,
@@ -58,6 +59,7 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     label: "Reports",
     items: [
       { href: "/revenue", label: "Revenue", Icon: BarChart3 },
+      { href: "/funnel", label: "Funnel", Icon: Filter },
       { href: "/sources", label: "Sources", Icon: Compass },
       { href: "/digest", label: "Morning digest", Icon: Mail },
       { href: "/export", label: "Export", Icon: Download },

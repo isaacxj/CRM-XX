@@ -93,6 +93,15 @@ export const HELP_ENTRIES: HelpEntry[] = [
     ],
   },
   {
+    id: "funnel",
+    title: "Funnel",
+    href: "/funnel",
+    body: "Shows how far deals get through each business's pipeline. For every stage you see how many deals reached it, the share of the previous stage that made it, and how many are there now, with the win rate and how long won deals took. Filter by business.",
+    tips: [
+      "A deal counts as reaching a stage if it is there, passed through it, or went on to a later stage; lost deals count up to the furthest stage they reached.",
+    ],
+  },
+  {
     id: "sources",
     title: "Sources",
     href: "/sources",
