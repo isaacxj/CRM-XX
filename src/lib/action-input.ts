@@ -51,6 +51,16 @@ export const nextStepInput = z.object({
   days: snoozeInput.shape.days,
 });
 
+export const checkInInput = z.object({
+  companyId: recordId,
+  days: z.coerce
+    .number()
+    .refine(
+      (d) => [1, 7, 30].includes(d),
+      "Pick tomorrow, a week, or a month.",
+    ),
+});
+
 export const companyDetailsInput = z
   .object({
     companyId: recordId,

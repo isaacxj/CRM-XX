@@ -189,6 +189,46 @@ export async function listWithoutNextStep(
     .limit(NO_NEXT_STEP_CAP);
 }
 
+// Max rows on the Client check-ins page.
+export const QUIET_CLIENTS_CAP = 300;
+
+// Clients nobody has touched for at least `days` days (latest activity, task
+// or deal change), quietest first, with whether a follow-up is already open.
+export async function listQuietClients(filters: {
+  business?: Business;
+  days: number;
+  q?: string;
+}) {
+  const db = getDb();
+  return db
+    .select({
+      id: companies.id,
+      name: companies.name,
+      business: companies.business,
+      lastActivityAt,
+      openDeals: sql<number>`(
+        select count(*) from deals
+        where company_id = ${companyId} and stage not in ('won', 'lost')
+      )`,
+      openTasks: sql<number>`(
+        select count(*) from tasks
+        where company_id = ${companyId} and done_at is null
+      )`,
+    })
+    .from(companies)
+    .where(
+      and(
+        isNull(companies.archivedAt),
+        eq(companies.status, "client"),
+        filters.business ? eq(companies.business, filters.business) : undefined,
+        filters.q ? matches(companies.name, likePattern(filters.q)) : undefined,
+        sql`${lastActivityAt} <= datetime('now', ${`-${filters.days} days`})`,
+      ),
+    )
+    .orderBy(asc(lastActivityAt), asc(companies.name))
+    .limit(QUIET_CLIENTS_CAP);
+}
+
 export async function getCompany(id: number) {
   const db = getDb();
   const [company] = await db

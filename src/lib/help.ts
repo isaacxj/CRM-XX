@@ -84,6 +84,15 @@ export const HELP_ENTRIES: HelpEntry[] = [
     tips: ["Moving a deal to another stage resets its clock."],
   },
   {
+    id: "check-ins",
+    title: "Client check-ins",
+    href: "/check-ins",
+    body: "Lists clients nobody has touched for 30, 60 or 90 days or more, quietest first, with the date of the last activity and whether a follow-up is already open. Use Check in tomorrow, in a week or in a month to add a Check in follow-up on the company, or open the company to log a call. Filter by business or search by name.",
+    tips: [
+      "Logging anything on the company, or finishing a task, counts as activity and removes it from the list.",
+    ],
+  },
+  {
     id: "sources",
     title: "Sources",
     href: "/sources",

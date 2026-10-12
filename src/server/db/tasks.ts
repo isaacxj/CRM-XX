@@ -51,6 +51,16 @@ export async function scheduleNextStep(companyId: number, days: number) {
   });
 }
 
+// Adds a "Check in" task due `days` from today (UTC date).
+export async function scheduleCheckIn(companyId: number, days: number) {
+  const due = new Date();
+  due.setUTCDate(due.getUTCDate() + days);
+  return createTask(companyId, {
+    title: "Check in",
+    dueDate: due.toISOString().slice(0, 10),
+  });
+}
+
 export async function completeTask(id: number) {
   const db = getDb();
   await db
