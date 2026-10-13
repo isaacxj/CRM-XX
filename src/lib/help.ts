@@ -121,6 +121,16 @@ export const HELP_ENTRIES: HelpEntry[] = [
     ],
   },
   {
+    id: "win-back",
+    title: "Win back",
+    href: "/win-back",
+    body: "Past clients, biggest first, with what they bought before (total won, how many deals, monthly value), when they were last touched, and any open deals or follow-ups. Reopen as prospect moves the company back to Prospect so it shows up in your pipeline lists. A week, 30 days or 90 days adds a Win back follow-up on the company. Filter by business or search by name.",
+    tips: [
+      "Reopen as prospect only changes the company's status; start a deal from Prospects without a deal.",
+      "Companies are marked as past clients from the company page.",
+    ],
+  },
+  {
     id: "no-deal",
     title: "Prospects without a deal",
     href: "/no-deal",

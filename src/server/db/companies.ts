@@ -234,6 +234,56 @@ export async function listProspectsWithoutDeal(
     .limit(NO_DEAL_CAP);
 }
 
+// Max rows on the Win back page.
+export const WIN_BACK_CAP = 300;
+
+// Past clients, most valuable first, with what they bought before: the won
+// deals' total value and latest win, plus open deals and follow-ups now.
+export async function listPastClients(
+  filters: { business?: Business; q?: string } = {},
+) {
+  const db = getDb();
+  const wonCents = sql<number>`coalesce((
+    select sum(amount_cents) from deals
+    where company_id = ${companyId} and stage = 'won'
+  ), 0)`;
+  return db
+    .select({
+      id: companies.id,
+      name: companies.name,
+      business: companies.business,
+      lastActivityAt,
+      wonDeals: sql<number>`(
+        select count(*) from deals
+        where company_id = ${companyId} and stage = 'won'
+      )`,
+      wonCents,
+      monthlyCents: sql<number>`coalesce((
+        select sum(amount_cents) from deals
+        where company_id = ${companyId} and stage = 'won' and billing = 'monthly'
+      ), 0)`,
+      openDeals: sql<number>`(
+        select count(*) from deals
+        where company_id = ${companyId} and stage not in ('won', 'lost')
+      )`,
+      openTasks: sql<number>`(
+        select count(*) from tasks
+        where company_id = ${companyId} and done_at is null
+      )`,
+    })
+    .from(companies)
+    .where(
+      and(
+        isNull(companies.archivedAt),
+        eq(companies.status, "past"),
+        filters.business ? eq(companies.business, filters.business) : undefined,
+        filters.q ? matches(companies.name, likePattern(filters.q)) : undefined,
+      ),
+    )
+    .orderBy(desc(wonCents), asc(lastActivityAt), asc(companies.name))
+    .limit(WIN_BACK_CAP);
+}
+
 // Max rows on the Client check-ins page.
 export const QUIET_CLIENTS_CAP = 300;
 

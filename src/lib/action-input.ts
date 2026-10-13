@@ -61,6 +61,16 @@ export const checkInInput = z.object({
     ),
 });
 
+export const winBackInput = z.object({
+  companyId: recordId,
+  days: z.coerce
+    .number()
+    .refine(
+      (d) => [7, 30, 90].includes(d),
+      "Pick a week, 30 days, or 90 days.",
+    ),
+});
+
 export const companyDetailsInput = z
   .object({
     companyId: recordId,
