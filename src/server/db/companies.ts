@@ -189,6 +189,51 @@ export async function listWithoutNextStep(
     .limit(NO_NEXT_STEP_CAP);
 }
 
+// Max rows on the Prospects without a deal page.
+export const NO_DEAL_CAP = 300;
+
+// Active prospects that have no open deal, quietest first, with how many
+// contacts and open follow-ups they have and how many deals were lost before.
+export async function listProspectsWithoutDeal(
+  filters: { business?: Business; q?: string } = {},
+) {
+  const db = getDb();
+  return db
+    .select({
+      id: companies.id,
+      name: companies.name,
+      business: companies.business,
+      source: companies.source,
+      lastActivityAt,
+      contacts: sql<number>`(
+        select count(*) from contacts where company_id = ${companyId}
+      )`,
+      openTasks: sql<number>`(
+        select count(*) from tasks
+        where company_id = ${companyId} and done_at is null
+      )`,
+      lostDeals: sql<number>`(
+        select count(*) from deals
+        where company_id = ${companyId} and stage = 'lost'
+      )`,
+    })
+    .from(companies)
+    .where(
+      and(
+        isNull(companies.archivedAt),
+        eq(companies.status, "prospect"),
+        filters.business ? eq(companies.business, filters.business) : undefined,
+        filters.q ? matches(companies.name, likePattern(filters.q)) : undefined,
+        sql`not exists (
+          select 1 from deals
+          where company_id = ${companyId} and stage not in ('won', 'lost')
+        )`,
+      ),
+    )
+    .orderBy(asc(lastActivityAt), asc(companies.name))
+    .limit(NO_DEAL_CAP);
+}
+
 // Max rows on the Client check-ins page.
 export const QUIET_CLIENTS_CAP = 300;
 

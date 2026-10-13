@@ -121,6 +121,16 @@ export const HELP_ENTRIES: HelpEntry[] = [
     ],
   },
   {
+    id: "no-deal",
+    title: "Prospects without a deal",
+    href: "/no-deal",
+    body: "Prospects that have no open deal, quietest first, with when they were last touched, their contacts and open follow-ups. Start deal adds a deal named after the company at Qualified, and Tomorrow or In a week adds a follow-up. Filter by business or search by name.",
+    tips: [
+      "Start deal creates the deal with no value; set the amount from the deals board.",
+      "Companies that already have a won or lost deal still appear here until they have an open one.",
+    ],
+  },
+  {
     id: "lost",
     title: "Lost deals",
     href: "/lost",
