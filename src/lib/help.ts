@@ -121,6 +121,16 @@ export const HELP_ENTRIES: HelpEntry[] = [
     ],
   },
   {
+    id: "reply-due",
+    title: "Reply due",
+    href: "/reply-due",
+    body: "Lists emails you received that nobody has answered yet, oldest first, with who sent it, the subject and how long it has waited. Log reply sent records a Re: email on the company, which clears it from the list. Tomorrow, In 3 days or In a week adds a Reply to follow-up instead. Filter by business or search by company.",
+    tips: [
+      "A company drops off as soon as any email is logged as sent on it after the one received.",
+      "Forwarded replies and Got reply on a waiting email both count as received.",
+    ],
+  },
+  {
     id: "win-back",
     title: "Win back",
     href: "/win-back",

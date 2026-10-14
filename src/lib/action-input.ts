@@ -61,6 +61,15 @@ export const checkInInput = z.object({
     ),
 });
 
+export const replyDueInput = z.object({
+  companyId: recordId,
+  subject: z.string().trim().max(200).optional(),
+  days: z.coerce
+    .number()
+    .refine((d) => [1, 3, 7].includes(d), "Pick tomorrow, 3 days, or a week.")
+    .optional(),
+});
+
 export const winBackInput = z.object({
   companyId: recordId,
   days: z.coerce
