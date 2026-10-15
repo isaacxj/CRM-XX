@@ -24,6 +24,7 @@ const NAV_ITEMS = [
 const SIDEBAR_ONLY = [
   { href: "/search", label: "Search" },
   { href: "/revenue", label: "Revenue" },
+  { href: "/export", label: "Export" },
   { href: "/digest", label: "Morning digest" },
 ];
 
