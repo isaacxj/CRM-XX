@@ -13,7 +13,10 @@ import {
 export type TimelineItem =
   | {
       kind: "activity";
+      id: number;
       at: string;
+      endsAt: string | null;
+      ownerEmail: string | null;
       type: ActivityType;
       subject: string | null;
       body: string;
@@ -54,7 +57,10 @@ export async function listTimelineForCompany(
   const items: TimelineItem[] = [
     ...activityRows.map((a) => ({
       kind: "activity" as const,
+      id: a.id,
       at: a.occurredAt,
+      endsAt: a.endsAt,
+      ownerEmail: a.ownerEmail,
       type: a.type,
       subject: a.subject,
       body: a.body,

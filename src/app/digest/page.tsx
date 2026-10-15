@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { PageHeader } from "@/components/kit/page-header";
 import { WhoFilter, parseWho } from "@/components/who-filter";
 import { previewDigests, renderDigest } from "@/server/db/digest";
 import { getCurrentUserEmail } from "@/server/user";
@@ -17,27 +18,23 @@ export default async function DigestPreview({
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6 md:p-8">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Morning digest</h1>
-          <p className="mt-1 max-w-prose text-zinc-600 dark:text-zinc-400">
-            What each person gets by email on weekday mornings: overdue
-            follow-ups, replies still pending, and today&apos;s meetings. People
-            with nothing due are skipped. Times are UTC.
-          </p>
-        </div>
-        {me && (
-          <WhoFilter
-            who={who}
-            hrefFor={(w) => (w === "mine" ? "/digest?who=mine" : "/digest")}
-          />
-        )}
-      </div>
+      <PageHeader
+        title="Morning digest"
+        description="What each person gets by email on weekday mornings: overdue follow-ups, replies still pending, and today's meetings. People with nothing due are skipped. Times are UTC."
+        actions={
+          me ? (
+            <WhoFilter
+              who={who}
+              hrefFor={(w) => (w === "mine" ? "/digest?who=mine" : "/digest")}
+            />
+          ) : undefined
+        }
+      />
 
       {digests.length === 0 ? (
-        <p className="text-sm text-zinc-500">
+        <p className="text-muted-foreground text-sm">
           Nothing to send right now.{" "}
-          <Link href="/tasks" className="underline">
+          <Link href="/tasks" className="text-accent underline">
             Add a follow-up
           </Link>{" "}
           or log a meeting for today and it will show up here.
@@ -48,9 +45,11 @@ export default async function DigestPreview({
           return (
             <section
               key={d.ownerEmail}
-              className="rounded-lg border border-zinc-200 p-6 dark:border-zinc-800"
+              className="border-border bg-surface-raised rounded-lg border p-6"
             >
-              <p className="text-sm text-zinc-500">To: {d.ownerEmail}</p>
+              <p className="text-muted-foreground text-sm">
+                To: {d.ownerEmail}
+              </p>
               <h2 className="mt-1 text-lg font-semibold">{subject}</h2>
               <pre className="mt-3 overflow-x-auto font-sans text-sm whitespace-pre-wrap">
                 {text}

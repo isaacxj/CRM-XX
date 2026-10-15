@@ -22,6 +22,41 @@ function cell(row: string[], mapping: ImportMapping, field: ImportField) {
   return (row[index] ?? "").trim();
 }
 
+export type ImportPreview = {
+  willImport: number;
+  blankName: number;
+  duplicates: number;
+};
+
+// Counts what an import would do without writing anything: rows with no
+// company name, and rows whose company already exists (or repeats in the file).
+export async function previewImport(
+  business: Business,
+  rows: string[][],
+  mapping: ImportMapping,
+): Promise<ImportPreview> {
+  const db = getDb();
+  const existingCompanies = await db
+    .select({ name: companies.name })
+    .from(companies)
+    .where(eq(companies.business, business));
+  const seenNames = new Set(existingCompanies.map((c) => c.name.toLowerCase()));
+
+  const preview: ImportPreview = { willImport: 0, blankName: 0, duplicates: 0 };
+  for (const row of rows) {
+    const name = cell(row, mapping, "companyName");
+    if (!name) {
+      preview.blankName++;
+    } else if (seenNames.has(name.toLowerCase())) {
+      preview.duplicates++;
+    } else {
+      seenNames.add(name.toLowerCase());
+      preview.willImport++;
+    }
+  }
+  return preview;
+}
+
 export async function importCompaniesAndContacts(
   business: Business,
   rows: string[][],

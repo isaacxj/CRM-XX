@@ -1,5 +1,6 @@
 import { getPlatformProxy } from "wrangler";
 import { drizzle } from "drizzle-orm/d1";
+import { eq } from "drizzle-orm";
 
 import * as schema from "../src/server/db/schema";
 
@@ -253,6 +254,49 @@ async function main() {
           doneAt: "2026-09-11 09:00:00",
         });
       }
+    }
+  }
+
+  // Closed deals from earlier months, so Revenue has history to compare
+  // against and the MRR line has something to climb.
+  for (const business of ["statixx", "trazo"] as const) {
+    const [owner] = await db
+      .select()
+      .from(schema.companies)
+      .where(eq(schema.companies.business, business))
+      .limit(1);
+    const history = [
+      { ago: 200, stage: "won" },
+      { ago: 150, stage: "won" },
+      { ago: 120, stage: "lost" },
+      { ago: 95, stage: "won" },
+      { ago: 70, stage: "won" },
+      { ago: 55, stage: "lost" },
+      { ago: 40, stage: "won" },
+    ] as const;
+    for (const [i, past] of history.entries()) {
+      const [deal] = await db
+        .insert(schema.deals)
+        .values({
+          companyId: owner.id,
+          title: `${owner.name} ${business === "statixx" ? "phase" : "seat expansion"} ${i + 1}`,
+          stage: past.stage,
+          amountCents:
+            business === "statixx"
+              ? 12_000_00 + i * 2_000_00
+              : 300_00 + i * 50_00,
+          billing: business === "statixx" ? "one_time" : "monthly",
+          lostReason: past.stage === "lost" ? "Went with another vendor" : null,
+          createdAt: daysAgo(past.ago + 20),
+          updatedAt: daysAgo(past.ago),
+        })
+        .returning();
+      await db.insert(schema.dealEvents).values({
+        dealId: deal.id,
+        fromStage: "qualified",
+        toStage: past.stage,
+        createdAt: daysAgo(past.ago),
+      });
     }
   }
 

@@ -21,10 +21,10 @@ export function WhoFilter({
           key={w}
           href={hrefFor(w)}
           aria-current={w === who ? "true" : undefined}
-          className={`rounded px-3 py-2 text-sm ${
+          className={`inline-flex min-h-8 items-center rounded-md px-3 text-sm max-md:min-h-(--tap-target) ${
             w === who
-              ? "bg-zinc-100 font-medium dark:bg-zinc-800"
-              : "text-zinc-600 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-900"
+              ? "bg-muted text-foreground font-medium"
+              : "text-muted-foreground hover:bg-surface-hover hover:text-foreground"
           }`}
         >
           {w === "mine" ? "Mine" : "Everyone"}

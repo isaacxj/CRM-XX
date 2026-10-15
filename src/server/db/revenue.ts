@@ -10,6 +10,13 @@ export type Revenue = {
   wonThisMonth: { count: number; money: Money };
   wonThisQuarter: { count: number; money: Money };
   winRate: { won: number; lost: number; percent: number | null };
+  previous: {
+    wonMonthCents: number;
+    wonQuarterCents: number;
+    winRatePercent: number | null;
+    mrrCents: number;
+  };
+  mrrByMonth: { month: string; cents: number }[];
   mrrCents: number;
   mrrClients: {
     companyId: number;
@@ -24,6 +31,13 @@ const emptyMoney = (): Money => ({ oneTimeCents: 0, monthlyCents: 0 });
 function addMoney(money: Money, billing: string, cents: number) {
   if (billing === "monthly") money.monthlyCents += cents;
   else money.oneTimeCents += cents;
+}
+
+/** Shifts a `YYYY-MM-01` date by whole months. */
+function shiftMonth(date: string, months: number) {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCMonth(d.getUTCMonth() + months);
+  return d.toISOString().slice(0, 10);
 }
 
 /**
@@ -67,6 +81,21 @@ export async function getRevenue(
     .toISOString()
     .slice(0, 10);
 
+  const prevMonthStart = shiftMonth(monthStart, -1);
+  const prevQuarterStart = shiftMonth(quarterStart, -3);
+  const ninetyToOneEighty = new Date(now.getTime() - 180 * 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+  const previous = {
+    wonMonthCents: 0,
+    wonQuarterCents: 0,
+    winRatePercent: null as number | null,
+    mrrCents: 0,
+  };
+  let wonPrev90 = 0;
+  let lostPrev90 = 0;
+  const monthlyWins: { closedOn: string; cents: number }[] = [];
+
   const pipeline = new Map<string, { count: number; money: Money }>();
   const wonThisMonth = { count: 0, money: emptyMoney() };
   const wonThisQuarter = { count: 0, money: emptyMoney() };
@@ -97,7 +126,22 @@ export async function getRevenue(
       else lost90 += 1;
     }
 
+    if (closedOn >= ninetyToOneEighty && closedOn < ninetyDaysAgo) {
+      if (deal.stage === "won") wonPrev90 += 1;
+      else lostPrev90 += 1;
+    }
+
     if (deal.stage !== "won") continue;
+
+    if (closedOn >= prevMonthStart && closedOn < monthStart) {
+      previous.wonMonthCents += deal.amountCents;
+    }
+    if (closedOn >= prevQuarterStart && closedOn < quarterStart) {
+      previous.wonQuarterCents += deal.amountCents;
+    }
+    if (deal.billing === "monthly" && deal.companyStatus !== "past") {
+      monthlyWins.push({ closedOn, cents: deal.amountCents });
+    }
 
     if (closedOn >= monthStart && closedOn <= today) {
       wonThisMonth.count += 1;
@@ -119,6 +163,24 @@ export async function getRevenue(
 
   mrrClients.sort((a, b) => b.amountCents - a.amountCents);
   const decided = won90 + lost90;
+  const prevDecided = wonPrev90 + lostPrev90;
+  previous.winRatePercent =
+    prevDecided === 0 ? null : Math.round((wonPrev90 / prevDecided) * 100);
+
+  // MRR at the end of each of the last 12 months: monthly deals won by then.
+  // Churn isn't tracked, so past clients are left out of every month.
+  const mrrByMonth: Revenue["mrrByMonth"] = [];
+  for (let back = 11; back >= 0; back--) {
+    const start = shiftMonth(monthStart, -back);
+    const end = shiftMonth(start, 1);
+    mrrByMonth.push({
+      month: start.slice(0, 7),
+      cents: monthlyWins
+        .filter((win) => win.closedOn < end)
+        .reduce((sum, win) => sum + win.cents, 0),
+    });
+  }
+  previous.mrrCents = mrrByMonth[10].cents;
 
   return {
     pipeline: [...pipeline.entries()].map(([stage, value]) => ({
@@ -132,6 +194,8 @@ export async function getRevenue(
       lost: lost90,
       percent: decided === 0 ? null : Math.round((won90 / decided) * 100),
     },
+    previous,
+    mrrByMonth,
     mrrCents: mrrClients.reduce((sum, client) => sum + client.amountCents, 0),
     mrrClients,
   };
